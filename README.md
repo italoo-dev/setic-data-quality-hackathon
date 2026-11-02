@@ -46,6 +46,14 @@ Quando a informação enviada pelo sistema cliente é **conceitualmente idônea 
 ### 1.2. Bloqueio Estrito (*Strict Blocking*)
 Quando o dado possui **defeito estrutural, matemático, semântico ou calendário impossível**, o gateway rejeita a transação com **`HTTP 422 Unprocessable Entity`**, impede a persistência e gera um relatório diagnóstico com `campo`, `regra_violada`, `valor_rejeitado`, `formato_esperado` e `mensagem`. Toda tentativa rejeitada gera telemetria de auditoria para fins de governança.
 
+### 1.3. Arquitetura Modular em Camadas (DDD, Pipeline & Strategy Patterns)
+O sistema adota os princípios de Clean Architecture, Domain-Driven Design (DDD) e SOLID:
+- **Camada de Apresentação (`app/api/`)**: Roteadores modulares dedicados (`validation.py`, `rules.py`, `metrics.py`, `audit.py`) desacoplados de regras de persistência via injeção de dependências (`dependencies.py`).
+- **Camada de Domínio (`app/domain/`)**: Contratos estritos em Python Protocols (`interfaces.py`) e Value Objects imutáveis (`models.py`: `ExecutionContext`, `ErroDiagnosticoItem`, `ResultadoMotor`).
+- **Padrão Strategy (`app/validators/`)**: Validadores atômicos e independentes herdando de `BaseValidator` (`CPFValidator`, `CNPJValidator`, `PhoneValidator`, `EmailValidator`, `PISValidator`, `CEPValidator`, `DateTimeValidator`, `IBGEMunicipioValidator`), permitindo inclusão de novos tipos sem alteração do código existente (Open/Closed Principle).
+- **Padrão Pipeline (`app/engine/`)**: `ValidationPipeline` orquestra sequencialmente os estágios (`CoreTierStep` $\rightarrow$ `DynamicTierStep` $\rightarrow$ Telemetria), mantendo a fachada `MotorValidacao` para 100% de compatibilidade reversa.
+- **Padrão Repository (`app/repositories/`)**: Desacoplamento da camada de persistência com `AuditRepository` e `RuleRepository`, isolando operações SQL e cálculos analíticos.
+
 ---
 
 ## 2. Revisão Arquitetural das Tecnologias

@@ -51,7 +51,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["app", "panel"]
+packages = ["backend", "frontend"]
 
 [tool.ruff]
 target-version = "py312"
@@ -74,10 +74,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "panel"]
+known-first-party = ["backend", "frontend"]
 
 [tool.pyright]
-include = ["app", "panel", "tests"]
+include = ["backend", "frontend"]
 exclude = ["**/node_modules", "**/__pycache__", ".venv", ".postgres", ".cache"]
 extraPaths = ["."]
 pythonVersion = "3.12"
@@ -89,6 +89,6 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests"]
+testpaths = ["backend/tests", "frontend/tests"]
 python_files = ["test_*.py"]
 asyncio_mode = "auto"

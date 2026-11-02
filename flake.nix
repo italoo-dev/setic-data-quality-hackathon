@@ -41,7 +41,7 @@
           buildPhase = "true";
           installPhase = ''
             mkdir -p $out/lib
-            cp -r app panel pyproject.toml $out/lib/
+            cp -r backend frontend pyproject.toml $out/lib/
           '';
         };
 

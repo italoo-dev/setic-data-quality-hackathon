@@ -10,26 +10,30 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from importlib.resources import files
 
 import brutils
-from unidecode import unidecode
 
 logger = logging.getLogger("setic.validators.ibge")
 
-ABREVIACOES_MUNICIPIOS = {
-    r"\bp\.\b": "porto",
-    r"\bsto\.\b": "santo",
-    r"\bsta\.\b": "santa",
-    r"\bs\.\b": "sao",
-    r"\bpres\.\b": "presidente",
-    r"\bgov\.\b": "governador",
-    r"\bcel\.\b": "coronel",
-    r"\bdr\.\b": "doutor",
-    r"\bprof\.\b": "professor",
-    r"\bmal\.\b": "marechal",
-    r"\bgal\.\b": "general",
+_MAPA_ABREVIACOES = {
+    "p": "porto",
+    "sto": "santo",
+    "sta": "santa",
+    "s": "sao",
+    "pres": "presidente",
+    "gov": "governador",
+    "cel": "coronel",
+    "dr": "doutor",
+    "prof": "professor",
+    "mal": "marechal",
+    "gal": "general",
 }
+_RE_ABREVIACOES = re.compile(
+    r"\b(p|sto|sta|s|pres|gov|cel|dr|prof|mal|gal)\.",
+    re.IGNORECASE,
+)
 
 
 def formatar_nome_municipio(nome_chave: str) -> str:
@@ -98,11 +102,12 @@ class CatalogoMunicipiosIBGE:
     @staticmethod
     def expandir_e_normalizar(texto: str) -> str:
         """Normaliza texto expandindo abreviações populares e removendo pontuações."""
-        t = unidecode(texto).lower()
-        for padrao, subst in ABREVIACOES_MUNICIPIOS.items():
-            t = re.sub(padrao, subst, t)
-        t = re.sub(r"[-'/.]", " ", t)
-        return re.sub(r"\s+", " ", t).strip()
+        sem_acento = "".join(
+            c for c in unicodedata.normalize("NFKD", texto) if not unicodedata.combining(c)
+        ).lower()
+        expandido = _RE_ABREVIACOES.sub(lambda m: _MAPA_ABREVIACOES[m.group(1).lower()], sem_acento)
+        limpo = re.sub(r"[-'/.]", " ", expandido)
+        return re.sub(r"\s+", " ", limpo).strip()
 
     @staticmethod
     def normalizar_uf(uf_bruta: str | None) -> str | None:

@@ -8,7 +8,6 @@ Gerencia conexões com o PostgreSQL, controle transacional e esquemas para:
 from __future__ import annotations
 
 import os
-from collections.abc import Generator
 from datetime import UTC, datetime
 
 from sqlalchemy import (
@@ -153,15 +152,6 @@ class RegistroAuditoria(Base):
 # Índices compostos para consultas analíticas frequentes
 Index("ix_auditoria_sistema_sucesso", RegistroAuditoria.sistema_origem, RegistroAuditoria.sucesso)
 Index("ix_auditoria_criado_sucesso", RegistroAuditoria.criado_em, RegistroAuditoria.sucesso)
-
-
-def get_db() -> Generator[Session, None, None]:
-    """Dependency injection generator para sessões do banco de dados no FastAPI."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def popular_regras_iniciais(db: Session) -> None:

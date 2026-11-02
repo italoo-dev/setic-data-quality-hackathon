@@ -14,7 +14,6 @@ from collections.abc import Mapping
 
 from backend.domain.interfaces import (
     AuditRepositoryProtocol,
-    PipelineStepProtocol,
     RuleRepositoryProtocol,
 )
 from backend.domain.models import ExecutionContext, ResultadoMotor
@@ -29,20 +28,11 @@ class ValidationPipeline:
         self,
         rule_repo: RuleRepositoryProtocol,
         audit_repo: AuditRepositoryProtocol,
-        steps: list[PipelineStepProtocol] | None = None,
     ) -> None:
         self.rule_repo = rule_repo
         self.audit_repo = audit_repo
         self.core_step = CoreTierStep()
         self.dynamic_step = DynamicTierStep(rule_repo)
-
-        self.steps: list[PipelineStepProtocol] = (
-            steps if steps is not None else [self.core_step, self.dynamic_step]
-        )
-
-    def add_step(self, step: PipelineStepProtocol) -> None:
-        """Adiciona uma etapa customizada ao pipeline de execução (OCP)."""
-        self.steps.append(step)
 
     def execute(
         self,
@@ -62,9 +52,8 @@ class ValidationPipeline:
             inicio_tempo=inicio,
         )
 
-        # Execução sequencial das etapas do pipeline
-        for step in self.steps:
-            context = step.process(context)
+        context = self.core_step.process(context)
+        context = self.dynamic_step.process(context)
 
         tempo_processamento_ms = round((time.perf_counter() - inicio) * 1000.0, 2)
         context.tempo_processamento_ms = tempo_processamento_ms

@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from app.domain.interfaces import BaseValidatorProtocol
 from app.domain.models import ErroDiagnosticoItem, ExecutionContext
 
 
-class BaseValidator(ABC):
+class BaseValidator(BaseValidatorProtocol, ABC):
     """Classe base abstrata para estratégias de validação e normalização de campos."""
 
     @abstractmethod

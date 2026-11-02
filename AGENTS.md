@@ -81,19 +81,17 @@ Cada commit deve representar uma única camada arquitetural ou unidade lógica i
 
 ## 5. Ciclo de Verificação Pré-Commit (Verification Loop)
 
-Antes de gerar qualquer commit no repositório, o agente deve validar o código executando a suíte de checagens dentro do ambiente Nix:
+A integridade do código é garantida automaticamente por **Git Pre-Commit Hooks** (`.pre-commit-config.yaml`), que interceptam a criação de commits executando o linter e o formatador `ruff`, além da checagem estática de tipos `pyright`.
+
+Os hooks são instalados automaticamente ao carregar o ambiente (`shellHook` do `flake.nix` ou `pre-commit install`).
+
+Para validação manual ou execução da suíte completa de testes antes da submissão:
 
 ```bash
-# 1. Análise estática e linting
-ruff check .
+# 1. Execução manual dos hooks pré-commit em todos os arquivos
+pre-commit run --all-files
 
-# 2. Verificação de formatação
-ruff format --check .
-
-# 3. Análise estática de tipos
-pyright
-
-# 4. Execução dos testes automatizados
+# 2. Execução dos testes automatizados (unitários e integração)
 pytest
 ```
 

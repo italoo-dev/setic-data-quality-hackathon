@@ -76,24 +76,18 @@ No diretório raiz do projeto, execute:
 nix develop
 ```
 
-O hook simplificado do Nix irá:
-1. Criar o ambiente virtual `.venv` e sincronizar as dependências declaradas no `pyproject.toml` via `uv`.
-2. Configurar a variável `DATABASE_URL` apontando para o container na porta padrão `5432`.
-3. Disponibilizar os comandos de automação do container e dos serviços.
+O hook minimalista do Nix irá:
+1. Configurar a variável de ambiente `DATABASE_URL` para o PostgreSQL na porta `5432`.
+2. Criar e sincronizar o ambiente virtual `.venv` diretamente a partir do `pyproject.toml` usando `uv`.
 
-### 3.2. Gerenciamento do Banco de Dados via Container
+### 3.2. Inicialização do Banco de Dados em Container
 
-Você pode subir o banco de dados PostgreSQL 16 usando Podman, Docker ou Docker Compose:
+Suba o PostgreSQL 16 via Docker Compose ou Podman:
 
 ```bash
-# Iniciar o container PostgreSQL (detecta Podman ou Docker automaticamente)
-iniciar-db
-
-# Ou via docker-compose diretamente:
-docker compose up -d  # ou: podman-compose up -d
-
-# Para encerrar o container:
-parar-db
+docker compose up -d
+# ou com podman:
+podman compose up -d
 ```
 
 ---
@@ -102,34 +96,28 @@ parar-db
 
 Dentro do shell `nix develop`:
 
-### Opção A: Iniciar Todos os Serviços Concorrentemente (Recomendado)
+### 4.1. Iniciar a API REST FastAPI
 ```bash
-iniciar-tudo
+uvicorn app.main:app --reload --port 8000
 ```
-Inicia simultaneamente:
-- **API FastAPI**: `http://localhost:8000` (Documentação Swagger: `http://localhost:8000/docs`)
-- **Painel Streamlit (CAGD)**: `http://localhost:8501`
+- **Documentação Swagger (OpenAPI em pt-BR)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Documentação ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 
-### Opção B: Iniciar os Serviços Individualmente
-
-Em terminais separados:
+### 4.2. Iniciar o Painel Streamlit da CAGD
 ```bash
-# Terminal 1: Iniciar API FastAPI
-iniciar-api
-# ou: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Terminal 2: Iniciar Painel Administrativo Streamlit
-iniciar-painel
-# ou: streamlit run panel/app.py --server.port 8501
+streamlit run panel/app.py
 ```
+- **Interface Web da CAGD**: [http://localhost:8501](http://localhost:8501)
 
-### Opção C: Comandos de Governança e Testes
+### 4.3. Execução dos Testes Automatizados e Linters
 ```bash
-# Executar a suíte de testes automatizados unitários e de integração
-testar-pipeline
+# Suíte de testes unitários e de integração
+pytest
 
-# Executar a verificação estática de código (Ruff + Pyright)
-verificar-codigo
+# Análise estática, formatação e verificação de tipos
+ruff check .
+ruff format --check .
+pyright
 ```
 
 ---

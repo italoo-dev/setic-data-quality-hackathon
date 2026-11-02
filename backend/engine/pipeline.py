@@ -12,8 +12,6 @@ import time
 import uuid
 from collections.abc import Mapping
 
-from sqlalchemy.orm import Session
-
 from backend.domain.interfaces import (
     AuditRepositoryProtocol,
     PipelineStepProtocol,
@@ -22,8 +20,6 @@ from backend.domain.interfaces import (
 from backend.domain.models import ExecutionContext, ResultadoMotor
 from backend.engine.core_tier import CoreTierStep
 from backend.engine.dynamic_tier import DynamicTierStep
-from backend.repositories.audit import AuditRepository
-from backend.repositories.rules import RuleRepository
 
 
 class ValidationPipeline:
@@ -100,21 +96,3 @@ class ValidationPipeline:
             transformacoes=context.transformacoes,
             tempo_processamento_ms=tempo_processamento_ms,
         )
-
-
-class MotorValidacao:
-    """Fachada compatível com a interface anterior do motor para garantir retrocompatibilidade."""
-
-    def __init__(self, db: Session) -> None:
-        self.db = db
-        self.rule_repo = RuleRepository(db)
-        self.audit_repo = AuditRepository(db)
-        self.pipeline = ValidationPipeline(self.rule_repo, self.audit_repo)
-
-    def executar(
-        self,
-        dados_entrada: dict[str, object],
-        sistema_origem: str,
-    ) -> ResultadoMotor:
-        """Delega a execução para o ValidationPipeline."""
-        return self.pipeline.execute(dados_entrada, sistema_origem)

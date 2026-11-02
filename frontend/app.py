@@ -31,7 +31,9 @@ if _ROOT_DIR not in sys.path:
     sys.path.insert(0, _ROOT_DIR)
 
 from backend.database import RegistroAuditoria, RegraValidacao, SessionLocal, init_db  # noqa: E402
-from backend.engine import MotorValidacao  # noqa: E402
+from backend.engine.pipeline import ValidationPipeline  # noqa: E402
+from backend.repositories.audit import AuditRepository  # noqa: E402
+from backend.repositories.rules import RuleRepository  # noqa: E402
 
 # Configuração da Página Streamlit
 st.set_page_config(
@@ -121,14 +123,17 @@ def executar_validacao(payload: dict[str, object]) -> tuple[int, dict[str, objec
         res_json = r.json()
         return r.status_code, res_json if isinstance(res_json, dict) else {}
     except Exception:
-        # 2. Fallback direto para o motor e banco local
+        # 2. Fallback direto para o pipeline e banco local
         db = obter_sessao_db()
         try:
-            motor = MotorValidacao(db)
+            pipeline = ValidationPipeline(
+                rule_repo=RuleRepository(db),
+                audit_repo=AuditRepository(db),
+            )
             raw_dados = payload.get("dados")
             dados_dict = raw_dados if isinstance(raw_dados, dict) else {}
             sistema_origem = str(payload.get("sistema_origem", "STREAMLIT_FALLBACK"))
-            res = motor.executar(
+            res = pipeline.execute(
                 dados_entrada=dados_dict,
                 sistema_origem=sistema_origem,
             )

@@ -5,7 +5,9 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.core_validators import (
+from backend.database import SessionLocal, init_db
+from backend.main import app
+from backend.validators import (
     validar_e_normalizar_cep,
     validar_e_normalizar_cnpj,
     validar_e_normalizar_cpf,
@@ -15,8 +17,6 @@ from backend.core_validators import (
     validar_e_normalizar_pis,
     validar_e_normalizar_telefone,
 )
-from backend.database import SessionLocal, init_db
-from backend.main import app
 
 
 @pytest.fixture(scope="session", autouse=True)

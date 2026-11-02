@@ -51,7 +51,7 @@ O sistema adota os princípios de Clean Architecture, Domain-Driven Design (DDD)
 - **Camada de Apresentação (`backend/api/`)**: Roteadores modulares dedicados (`validation.py`, `rules.py`, `metrics.py`, `audit.py`) desacoplados de regras de persistência via injeção de dependências (`dependencies.py`).
 - **Camada de Domínio (`backend/domain/`)**: Contratos estritos em Python Protocols (`interfaces.py`) e Value Objects imutáveis (`models.py`: `ExecutionContext`, `ErroDiagnosticoItem`, `ResultadoMotor`).
 - **Padrão Strategy (`backend/validators/`)**: Validadores atômicos e independentes herdando de `BaseValidator` (`CPFValidator`, `CNPJValidator`, `PhoneValidator`, `EmailValidator`, `PISValidator`, `CEPValidator`, `DateTimeValidator`, `IBGEMunicipioValidator`), permitindo inclusão de novos tipos sem alteração do código existente (Open/Closed Principle).
-- **Padrão Pipeline (`backend/engine/`)**: `ValidationPipeline` orquestra sequencialmente os estágios (`CoreTierStep` $\rightarrow$ `DynamicTierStep` $\rightarrow$ Telemetria), mantendo a fachada `MotorValidacao` para 100% de compatibilidade reversa.
+- **Padrão Pipeline (`backend/engine/`)**: `ValidationPipeline` orquestra sequencialmente os estágios (`CoreTierStep` $\rightarrow$ `DynamicTierStep` $\rightarrow$ Telemetria).
 - **Padrão Repository (`backend/repositories/`)**: Desacoplamento da camada de persistência com `AuditRepository` e `RuleRepository`, isolando operações SQL e cálculos analíticos.
 
 ---

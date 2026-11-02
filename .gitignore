@@ -1,6 +1,8 @@
 # Ambientes virtuais e caches
 .venv/
 .cache/
+.direnv/
+.envrc
 __pycache__/
 *.py[cod]
 *$py.class

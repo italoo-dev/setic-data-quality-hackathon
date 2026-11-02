@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "setic-qualidade-dados"
+version = "1.0.0"
+description = "Plataforma Centralizada de Qualidade, Normalização e Gestão de Dados - SETIC/CAGD"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    { name = "Equipe de Arquitetura SETIC-RO", email = "arquitetura@setic.ro.gov.br" }
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: Database :: Database Engines/Servers",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "sqlalchemy>=2.0.35",
+    "psycopg[binary]>=3.2.0",
+    "brutils>=1.4.1",
+    "validate-docbr>=1.10.0",
+    "rapidfuzz>=3.9.0",
+    "unidecode>=1.3.8",
+    "dateparser>=1.2.0",
+    "streamlit>=1.39.0",
+    "pandas>=2.2.0",
+    "requests>=2.32.0",
+    "plotly>=5.24.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.7.0",
+    "pyright>=1.1.385",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501",  # line length handled by formatter
+    "B008",  # do not perform function calls in argument defaults (FastAPI Depends standard)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "panel"]
+
+[tool.pyright]
+include = ["app", "panel"]
+exclude = ["**/node_modules", "**/__pycache__", ".venv", ".postgres", ".cache"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"

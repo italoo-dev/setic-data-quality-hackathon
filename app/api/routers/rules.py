@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies import get_rule_repository
 from app.database import RegraValidacao
 from app.repositories.rules import RuleRepository
 from app.schemas import (
+    ConjuntoRegrasExportacao,
+    RegraExportadaItem,
     RegraValidacaoAtualizacao,
     RegraValidacaoCriacao,
     RegraValidacaoResposta,
+    RequisicaoImportacaoRegras,
+    ResultadoImportacaoRegras,
 )
 
 router = APIRouter(prefix="/api/v1/regras", tags=["Gestão de Regras"])
@@ -42,6 +48,56 @@ def criar_regra_dinamica(
 ) -> RegraValidacao:
     """Registra uma nova regra dinâmica configurada pela CAGD."""
     return rule_repo.criar(dados_regra.model_dump())
+
+
+@router.get(
+    "/exportar",
+    response_model=ConjuntoRegrasExportacao,
+    summary="Exportar Regras Dinâmicas (Backup/Portabilidade)",
+)
+def exportar_regras_dinamicas(
+    apenas_dinamicas: bool = True,
+    rule_repo: RuleRepository = Depends(get_rule_repository),
+) -> ConjuntoRegrasExportacao:
+    """Exporta o conjunto de regras dinâmicas em formato JSON estruturado."""
+    regras = rule_repo.exportar_regras(apenas_dinamicas=apenas_dinamicas)
+    return ConjuntoRegrasExportacao(
+        versao="1.0",
+        gerado_em=datetime.now(UTC).isoformat(),
+        total_regras=len(regras),
+        regras=[RegraExportadaItem.model_validate(r) for r in regras],
+    )
+
+
+@router.post(
+    "/importar",
+    response_model=ResultadoImportacaoRegras,
+    summary="Importar Regras Dinâmicas em Lote",
+)
+def importar_regras_dinamicas(
+    payload: RequisicaoImportacaoRegras,
+    rule_repo: RuleRepository = Depends(get_rule_repository),
+) -> ResultadoImportacaoRegras:
+    """Importa em lote regras dinâmicas com suporte a sobrescrita e validação de sintaxe regex."""
+    dados_regras = [r.model_dump() for r in payload.regras]
+    resultado = rule_repo.importar_regras(
+        regras=dados_regras,
+        sobrescrever=payload.sobrescrever,
+    )
+    raw_erros = resultado.get("erros")
+    erros = [str(e) for e in raw_erros] if isinstance(raw_erros, list) else []
+    raw_msgs = resultado.get("mensagens")
+    mensagens = [str(m) for m in raw_msgs] if isinstance(raw_msgs, list) else []
+
+    return ResultadoImportacaoRegras(
+        sucesso=bool(resultado.get("sucesso", False)),
+        total_processadas=int(str(resultado.get("total_processadas", 0))),
+        total_criadas=int(str(resultado.get("total_criadas", 0))),
+        total_atualizadas=int(str(resultado.get("total_atualizadas", 0))),
+        total_ignoradas=int(str(resultado.get("total_ignoradas", 0))),
+        erros=erros,
+        mensagens=mensagens,
+    )
 
 
 @router.put(

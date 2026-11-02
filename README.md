@@ -1,6 +1,6 @@
 # Plataforma Centralizada de Qualidade, Normalização e Gestão de Dados (SETIC/CAGD)
 
-> **Desafio 1 - SETIC (Secretaria de Estado da Tecnologia da Informação e Comunicação de Rondônia)**  
+> **Desafio 1 - SETIC (Secretaria de Estado da Tecnologia da Informação e Comunicação de Rondônia)**
 > Plataforma corporativa de saneamento, higienização, normalização permissiva e bloqueio estrito de dados pré-persistência, desenvolvida para a **CAGD (Coordenação de Análise e Gestão de Dados)**.
 
 ---

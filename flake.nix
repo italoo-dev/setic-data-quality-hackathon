@@ -24,8 +24,15 @@
         pre-commit-check = git-hooks.lib.${system}.run {
           src = ./.;
           hooks = {
-            ruff.enable = true;
+            # Formatters
             ruff-format.enable = true;
+
+            # Linters & Static Analysis
+            ruff.enable = true;
+
+            # Hygiene
+            trim-trailing-whitespace.enable = true;
+            end-of-file-fixer.enable = true;
           };
         };
       in
@@ -33,6 +40,7 @@
         checks = {
           inherit pre-commit-check;
         };
+
         packages.default = pkgs.stdenv.mkDerivation {
           pname = pyproject.project.name;
           version = pyproject.project.version;
@@ -47,30 +55,21 @@
 
         devShells.default = pkgs.mkShell {
           name = "${pyproject.project.name}-devshell";
-          buildInputs = pre-commit-check.enabledPackages;
-          packages = with pkgs; [
-            python312
-            uv
-            ruff
-            pyright
-            gcc
-            pkg-config
-            zlib
-            git
-            curl
-            podman-compose
-          ];
+          DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/setic_qualidade";
+
+          packages =
+            with pkgs;
+            [
+              python312
+              uv
+              pyright
+              podman-compose
+            ]
+            ++ pre-commit-check.enabledPackages;
 
           shellHook = ''
             ${pre-commit-check.shellHook}
-            export DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/setic_qualidade"
-            if [ ! -f ".venv/bin/activate" ] || ! .venv/bin/python -c "import sys" 2>/dev/null; then
-              rm -rf .venv
-              uv venv .venv
-              uv pip install -e ".[dev]" --quiet
-            fi
-            export VIRTUAL_ENV="$PWD/.venv"
-            export PATH="$VIRTUAL_ENV/bin:$PATH"
+            [ -d ".venv" ] && export PATH="$PWD/.venv/bin:$PATH" && export VIRTUAL_ENV="$PWD/.venv"
           '';
         };
       }

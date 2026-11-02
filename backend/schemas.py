@@ -51,6 +51,8 @@ class RequisicaoValidacao(BaseModel):
 class ErroDiagnosticoDetalhe(BaseModel):
     """Diagnóstico individual de inconsistência em um campo específico."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     campo: str = Field(
         ...,
         description="Nome do campo em que foi detectada a desconformidade",

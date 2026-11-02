@@ -54,16 +54,7 @@ def validar_e_normalizar(
             status_http=422,
             sistema_origem=resultado.sistema_origem,
             mensagem="Falha na validação dos dados de entrada. Persistência bloqueada.",
-            erros=[
-                ErroDiagnosticoDetalhe(
-                    campo=e.campo,
-                    regra_violada=e.regra_violada,
-                    valor_rejeitado=e.valor_rejeitado,
-                    formato_esperado=e.formato_esperado,
-                    mensagem=e.mensagem,
-                )
-                for e in resultado.erros
-            ],
+            erros=[ErroDiagnosticoDetalhe.model_validate(e) for e in resultado.erros],
             tempo_processamento_ms=resultado.tempo_processamento_ms,
         )
         return JSONResponse(

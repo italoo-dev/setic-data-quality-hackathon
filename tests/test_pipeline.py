@@ -6,10 +6,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core_validators import (
+    validar_e_normalizar_cep,
     validar_e_normalizar_cnpj,
     validar_e_normalizar_cpf,
     validar_e_normalizar_data,
+    validar_e_normalizar_email,
     validar_e_normalizar_municipio,
+    validar_e_normalizar_pis,
     validar_e_normalizar_telefone,
 )
 from app.database import SessionLocal, init_db
@@ -139,6 +142,64 @@ def test_municipio_inexistente_bloqueio():
     assert res.regra_violada == "MUNICIPIO_IBGE_NAO_ENCONTRADO"
 
 
+def test_municipio_com_uf_nome_extenso():
+    """Verifica se nome do estado por extenso (ex: 'Rondônia') é convertido para a sigla oficial via brutils."""
+    res = validar_e_normalizar_municipio("Porto Velho", "Rondônia")
+    assert res.valido is True
+    assert res.valor_normalizado["municipio"] == "Porto Velho"
+    assert res.valor_normalizado["uf"] == "RO"
+    assert res.valor_normalizado["codigo_ibge"] == "1100205"
+
+
+def test_cep_valido_normalizacao():
+    """Verifica se CEP com ou sem hífen é normalizado para 8 dígitos via brutils."""
+    res_com_hifen = validar_e_normalizar_cep("76801-000")
+    assert res_com_hifen.valido is True
+    assert res_com_hifen.valor_normalizado == "76801000"
+
+    res_sem_hifen = validar_e_normalizar_cep("76801000")
+    assert res_sem_hifen.valido is True
+    assert res_sem_hifen.valor_normalizado == "76801000"
+
+
+def test_cep_invalido_bloqueio():
+    """Verifica se CEP com formato inadequado é rejeitado via brutils."""
+    res = validar_e_normalizar_cep("12345")
+    assert res.valido is False
+    assert res.regra_violada == "FORMATO_CEP_INVALIDO"
+
+
+def test_email_valido_normalizacao():
+    """Verifica se e-mail com letras maiúsculas é normalizado para minúsculas via brutils."""
+    res = validar_e_normalizar_email("Contato@SETIC.RO.GOV.BR")
+    assert res.valido is True
+    assert res.valor_normalizado == "contato@setic.ro.gov.br"
+
+
+def test_email_invalido_bloqueio():
+    """Verifica se e-mail malformado é rejeitado via brutils."""
+    res = validar_e_normalizar_email("usuario_invalido_sem_arroba.com")
+    assert res.valido is False
+    assert res.regra_violada == "FORMATO_EMAIL_INVALIDO"
+
+
+def test_pis_valido_normalizacao():
+    """Verifica se PIS válido é normalizado para 11 dígitos limpos via brutils."""
+    import brutils
+
+    pis_gerado = brutils.generate_pis()
+    res = validar_e_normalizar_pis(pis_gerado)
+    assert res.valido is True
+    assert len(res.valor_normalizado) == 11
+
+
+def test_pis_invalido_bloqueio():
+    """Verifica se PIS com dígitos inválidos é rejeitado via brutils."""
+    res = validar_e_normalizar_pis("111.11111.11-1")
+    assert res.valido is False
+    assert res.regra_violada == "PIS_INVALIDO"
+
+
 # =====================================================================
 # TESTES DE INTEGRAÇÃO END-TO-END COM FASTAPI
 # =====================================================================
@@ -153,6 +214,8 @@ def test_api_validar_payload_valido(client):
             "data_nascimento": "15 de março de 1985",
             "municipio": "p. velho",
             "uf": "RO",
+            "cep": "76.801-000",
+            "email": "JOAO.SILVA@RO.GOV.BR",
             "matricula_funcional": "RO-123456",
         },
     }
@@ -164,6 +227,8 @@ def test_api_validar_payload_valido(client):
     assert dados["dados_normalizados"]["data_nascimento"] == "1985-03-15"
     assert dados["dados_normalizados"]["municipio"] == "Porto Velho"
     assert dados["dados_normalizados"]["codigo_ibge"] == "1100205"
+    assert dados["dados_normalizados"]["cep"] == "76801000"
+    assert dados["dados_normalizados"]["email"] == "joao.silva@ro.gov.br"
     assert "protocolo" in dados
 
 
@@ -175,6 +240,8 @@ def test_api_validar_payload_corrompido_bloqueio(client):
             "cpf": "123.456.789-00",
             "data_nascimento": "31/02/1990",
             "municipio": "Wakanda",
+            "cep": "123",
+            "email": "invalido",
             "matricula_funcional": "MAT-INVALIDA",
         },
     }
@@ -182,12 +249,14 @@ def test_api_validar_payload_corrompido_bloqueio(client):
     assert resp.status_code == 422
     dados = resp.json()
     assert dados["sucesso"] is False
-    assert len(dados["erros"]) >= 4
+    assert len(dados["erros"]) >= 6
 
     campos_com_erro = {e["campo"] for e in dados["erros"]}
     assert "cpf" in campos_com_erro
     assert "data_nascimento" in campos_com_erro
     assert "municipio" in campos_com_erro
+    assert "cep" in campos_com_erro
+    assert "email" in campos_com_erro
     assert "matricula_funcional" in campos_com_erro
 
 

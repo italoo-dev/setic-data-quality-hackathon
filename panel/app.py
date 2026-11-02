@@ -161,6 +161,20 @@ with st.sidebar:
         ],
     )
     st.markdown("---")
+    st.subheader("📚 Contrato OpenAPI")
+    st.link_button(
+        "📖 Documentação Swagger UI",
+        f"{API_URL}/docs",
+        width="stretch",
+        help="Acesse a documentação interativa Swagger gerada automaticamente a partir dos esquemas OpenAPI",
+    )
+    st.link_button(
+        "📋 Especificação ReDoc",
+        f"{API_URL}/redoc",
+        width="stretch",
+        help="Visualização técnica da documentação OpenAPI com ReDoc",
+    )
+    st.markdown("---")
     st.info(
         "**Desafio 1 - SETIC**\n\n"
         "Gatekeeper centralizado de qualidade, normalização permissiva e bloqueio estrito."
@@ -484,6 +498,10 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
     st.title("🧪 Sandbox de Validação e Normalização em Tempo Real")
     st.markdown(
         "Ambiente de experimentação interativo para testar cargas JSON contra o motor de qualidade."
+    )
+    st.info(
+        f"📖 **Contrato Oficial OpenAPI**: Os esquemas e códigos de resposta respeitam as definições da API REST. "
+        f"Consulte a [Documentação Swagger Interativa]({API_URL}/docs) ou a especificação [ReDoc]({API_URL}/redoc) para integração direta de sistemas clientes."
     )
 
     # Cenários pré-configurados

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from app.database import SessionLocal, init_db
@@ -38,9 +36,9 @@ def test_strategy_pattern_registration_ocp():
         def validate_and_normalize(
             self,
             field_name: str,
-            value: Any,
+            value: object,
             context: ExecutionContext,
-        ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+        ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
             if value == "CUSTOM-OK":
                 return "NORMALIZED-CUSTOM", [], ["Custom doc normalizado."]
             return (
@@ -97,9 +95,9 @@ def test_repository_pattern_audit_metrics(db):
     """Verifica o cálculo de métricas operacionais no AuditRepository."""
     audit_repo = AuditRepository(db)
     metricas = audit_repo.obter_metricas_cagd()
-    assert "total_requisicoes" in metricas
-    assert "taxa_rejeicao_percentual" in metricas
-    assert "volume_por_sistema" in metricas
+    assert metricas.total_requisicoes >= 0
+    assert metricas.taxa_rejeicao_percentual >= 0
+    assert isinstance(metricas.volume_por_sistema, list)
 
 
 def test_pipeline_pattern_end_to_end_orchestration(db):

@@ -12,12 +12,10 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import datetime
 from typing import Any
 
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import requests
 import streamlit as st
 from sqlalchemy.orm import Session
@@ -211,12 +209,10 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
 
         with col_esq:
             st.subheader("Volume por Sistema de Origem")
-            sistemas_dados = (
-                db.query(
-                    RegistroAuditoria.sistema_origem,
-                    RegistroAuditoria.sucesso,
-                ).all()
-            )
+            sistemas_dados = db.query(
+                RegistroAuditoria.sistema_origem,
+                RegistroAuditoria.sucesso,
+            ).all()
 
             if sistemas_dados:
                 df_sis = pd.DataFrame(sistemas_dados, columns=["sistema_origem", "sucesso"])
@@ -226,7 +222,8 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
                 df_agrupado = (
                     df_sis.groupby(["sistema_origem", "status"])
                     .size()
-                    .reset_index(name="quantidade")
+                    .to_frame("quantidade")
+                    .reset_index()
                 )
 
                 fig_sis = px.bar(
@@ -241,7 +238,7 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
                     },
                     labels={"sistema_origem": "Sistema Cliente", "quantidade": "Requisições"},
                 )
-                fig_sis.update_layout(height=350, margin=dict(l=20, r=20, t=30, b=20))
+                fig_sis.update_layout(height=350, margin={"l": 20, "r": 20, "t": 30, "b": 20})
                 st.plotly_chart(fig_sis, use_container_width=True)
             else:
                 st.info("Nenhuma transação registrada até o momento.")
@@ -256,10 +253,11 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
 
             contagem_campos: dict[str, int] = {}
             for item in falhas:
-                if isinstance(item[0], list):
-                    for erro in item[0]:
+                lista_erros = item[0] if item else None
+                if isinstance(lista_erros, list):
+                    for erro in lista_erros:
                         if isinstance(erro, dict):
-                            campo = erro.get("campo", "desconhecido")
+                            campo = str(erro.get("campo", "desconhecido"))
                             contagem_campos[campo] = contagem_campos.get(campo, 0) + 1
 
             if contagem_campos:
@@ -275,7 +273,7 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
                     color="Ocorrências",
                     color_continuous_scale="Reds",
                 )
-                fig_campos.update_layout(height=350, margin=dict(l=20, r=20, t=30, b=20))
+                fig_campos.update_layout(height=350, margin={"l": 20, "r": 20, "t": 30, "b": 20})
                 st.plotly_chart(fig_campos, use_container_width=True)
             else:
                 st.success("Nenhuma falha de validação registrada.")
@@ -284,10 +282,11 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
         st.subheader("Detalhamento de Regras Mais Violadas")
         contagem_regras: dict[str, int] = {}
         for item in falhas:
-            if isinstance(item[0], list):
-                for erro in item[0]:
+            lista_erros = item[0] if item else None
+            if isinstance(lista_erros, list):
+                for erro in lista_erros:
                     if isinstance(erro, dict):
-                        regra = erro.get("regra_violada", "OUTRA")
+                        regra = str(erro.get("regra_violada", "OUTRA"))
                         contagem_regras[regra] = contagem_regras.get(regra, 0) + 1
 
         if contagem_regras:
@@ -322,7 +321,9 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
     try:
         todas_regras = db.query(RegraValidacao).order_by(RegraValidacao.id.asc()).all()
 
-        tab_lista, tab_cadastro = st.tabs(["📋 Regras Ativas no Sistema", "➕ Cadastrar Nova Regra"])
+        tab_lista, tab_cadastro = st.tabs(
+            ["📋 Regras Ativas no Sistema", "➕ Cadastrar Nova Regra"]
+        )
 
         with tab_lista:
             st.subheader("Catálogo de Regras do Motor")
@@ -331,16 +332,18 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
             for r in todas_regras:
                 tipo = "🔒 NÚCLEO (IMUTÁVEL)" if r.eh_imutavel else "⚡ DINÂMICA (CAGD)"
                 status_txt = "🟢 Ativa" if r.ativo else "⚪ Inativa"
-                tabela_dados.append({
-                    "ID": r.id,
-                    "Campo": r.campo,
-                    "Nome da Regra": r.nome_regra,
-                    "Classificação": tipo,
-                    "Padrão Regex": r.padrao_regex or "(Algorítmico / Fuzzy)",
-                    "Obrigatório": "Sim" if r.obrigatorio else "Não",
-                    "Status": status_txt,
-                    "Imutável": r.eh_imutavel,
-                })
+                tabela_dados.append(
+                    {
+                        "ID": r.id,
+                        "Campo": r.campo,
+                        "Nome da Regra": r.nome_regra,
+                        "Classificação": tipo,
+                        "Padrão Regex": r.padrao_regex or "(Algorítmico / Fuzzy)",
+                        "Obrigatório": "Sim" if r.obrigatorio else "Não",
+                        "Status": status_txt,
+                        "Imutável": r.eh_imutavel,
+                    }
+                )
 
             df_tabela = pd.DataFrame(tabela_dados)
             st.dataframe(
@@ -359,7 +362,9 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                     regra_escolhida = st.selectbox(
                         "Selecione uma regra dinâmica para gerenciar:",
                         regras_dinamicas,
-                        format_func=lambda x: f"[{x.id}] {x.campo} - {x.nome_regra} ({'Ativa' if x.ativo else 'Inativa'})",
+                        format_func=lambda x: (
+                            f"[{x.id}] {x.campo} - {x.nome_regra} ({'Ativa' if x.ativo else 'Inativa'})"
+                        ),
                     )
                 with col_act1:
                     st.write("")
@@ -540,7 +545,7 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
 
         if dados_dict is not None:
             payload_envio = {
-                "sistema_origem": sistema_origem_input.strip() or "SANDBOX_STREAMLIT",
+                "sistema_origem": (sistema_origem_input or "").strip() or "SANDBOX_STREAMLIT",
                 "dados": dados_dict,
             }
 
@@ -585,7 +590,13 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
                     df_erros = pd.DataFrame(erros)
                     st.dataframe(
                         df_erros[
-                            ["campo", "regra_violada", "valor_rejeitado", "formato_esperado", "mensagem"]
+                            [
+                                "campo",
+                                "regra_violada",
+                                "valor_rejeitado",
+                                "formato_esperado",
+                                "mensagem",
+                            ]
                         ],
                         use_container_width=True,
                         hide_index=True,
@@ -611,13 +622,17 @@ elif menu_selecionado == "📜 Trilha de Auditoria e Telemetria":
         with col_filtro1:
             filtro_sistema = st.text_input("Filtrar por Sistema de Origem:")
         with col_filtro2:
-            filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "Aprovados (200)", "Bloqueados (422)"])
+            filtro_status = st.selectbox(
+                "Filtrar por Status:", ["Todos", "Aprovados (200)", "Bloqueados (422)"]
+            )
         with col_filtro3:
             limite = st.slider("Quantidade de Registros:", min_value=10, max_value=200, value=50)
 
         consulta = db.query(RegistroAuditoria)
         if filtro_sistema:
-            consulta = consulta.filter(RegistroAuditoria.sistema_origem.ilike(f"%{filtro_sistema}%"))
+            consulta = consulta.filter(
+                RegistroAuditoria.sistema_origem.ilike(f"%{filtro_sistema}%")
+            )
         if filtro_status == "Aprovados (200)":
             consulta = consulta.filter(RegistroAuditoria.sucesso == True)  # noqa: E712
         elif filtro_status == "Bloqueados (422)":
@@ -628,14 +643,18 @@ elif menu_selecionado == "📜 Trilha de Auditoria e Telemetria":
         if registros:
             lista_tabela = []
             for r in registros:
-                lista_tabela.append({
-                    "Protocolo": r.protocolo,
-                    "Sistema de Origem": r.sistema_origem,
-                    "Status": "✅ 200 OK" if r.sucesso else "🛑 422 Rejeitado",
-                    "Falhas": r.quantidade_erros,
-                    "Latência (ms)": f"{r.tempo_processamento_ms:.2f}",
-                    "Data/Hora (UTC)": r.criado_em.strftime("%d/%m/%Y %H:%M:%S") if r.criado_em else "-",
-                })
+                lista_tabela.append(
+                    {
+                        "Protocolo": r.protocolo,
+                        "Sistema de Origem": r.sistema_origem,
+                        "Status": "✅ 200 OK" if r.sucesso else "🛑 422 Rejeitado",
+                        "Falhas": r.quantidade_erros,
+                        "Latência (ms)": f"{r.tempo_processamento_ms:.2f}",
+                        "Data/Hora (UTC)": r.criado_em.strftime("%d/%m/%Y %H:%M:%S")
+                        if r.criado_em
+                        else "-",
+                    }
+                )
 
             df_auditoria = pd.DataFrame(lista_tabela)
             st.dataframe(df_auditoria, use_container_width=True, hide_index=True)

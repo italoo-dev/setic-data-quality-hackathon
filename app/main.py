@@ -94,6 +94,7 @@ app.add_middleware(
 )
 def checar_saude(db: Session = Depends(get_db)) -> dict[str, Any]:
     """Retorna o estado operacional dos serviços, banco de dados e catálogo IBGE."""
+    total_regras = 0
     try:
         total_regras = db.query(RegraValidacao).count()
         status_db = "conectado"
@@ -262,12 +263,10 @@ def obter_metricas_cagd(db: Session = Depends(get_db)) -> MetricasOperacionaisCA
                         contador_regras[r] += 1
 
     top_campos = [
-        ItemContagem(nome=campo, quantidade=qtd)
-        for campo, qtd in contador_campos.most_common(10)
+        ItemContagem(nome=campo, quantidade=qtd) for campo, qtd in contador_campos.most_common(10)
     ]
     top_regras = [
-        ItemContagem(nome=regra, quantidade=qtd)
-        for regra, qtd in contador_regras.most_common(10)
+        ItemContagem(nome=regra, quantidade=qtd) for regra, qtd in contador_regras.most_common(10)
     ]
 
     return MetricasOperacionaisCAGD(

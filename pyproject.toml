@@ -81,6 +81,8 @@ pythonVersion = "3.12"
 typeCheckingMode = "standard"
 reportMissingImports = true
 reportMissingTypeStubs = false
+venvPath = "."
+venv = ".venv"
 
 [tool.pytest.ini_options]
 minversion = "8.0"

@@ -55,8 +55,8 @@ Quando o dado possui **defeito estrutural, matemático, semântico ou calendári
 | **Python 3.12+ & FastAPI** | Gateway REST Assíncrono | Processamento de alta vazão com documentação OpenAPI interativa em Português do Brasil formal (pt-BR). |
 | **Pydantic V2** | Validação & Parsing Core | Validação ultrarrápida compilada em Rust com coerção estrita e esquemas tipados. |
 | **pyproject.toml** | *Single Source of Truth* | Especificação declarativa única (PEP 621) para dependências de runtime, dev tools, linters e LSPs. |
-| **Nix Flake (`pyproject.nix`)** | Ambiente Puro & Reprodutível | Shell declarativo que analisa diretamente o `pyproject.toml`, provisions Python 3.12, PostgreSQL 16 local, C/C++ compiler tools e hooks. |
-| **PostgreSQL 16 & SQLAlchemy** | Persistência Relacional | Armazenamento de regras dinâmicas (`RegraValidacao`) e telemetria de transações (`RegistroAuditoria`). |
+| **Nix Flake (`pyproject.nix`)** | Ambiente Puro & Reprodutível | Shell declarativo simplificado que analisa diretamente o `pyproject.toml`, provisionando Python 3.12, utilitários nativos e hooks de automação. |
+| **PostgreSQL 16 (Docker / Podman)** | Persistência Relacional em Container | Executado isoladamente via container (`docker-compose.yml`), persistindo regras dinâmicas (`RegraValidacao`) e telemetria (`RegistroAuditoria`). |
 | **Streamlit** | Painel Executivo da CAGD | Dashboard operacional em tempo real: cards KPI, gráficos de falha, gestão de regras e sandbox interativo de testes. |
 | **`brutils` & `validate-docbr`** | Identificadores Nacionais & IBGE | Validação matemática estrita de CPF/CNPJ (módulo 11), telefones Anatel, CEP e catálogo de localidades oficiais. |
 | **`dateparser`** | Normalização Fuzzy de Datas | Reconhecimento inteligente de datas arbitrárias escritas em português do Brasil e bloqueio de datas impossíveis. |
@@ -64,9 +64,9 @@ Quando o dado possui **defeito estrutural, matemático, semântico ou calendári
 
 ---
 
-## 3. Instalação e Execução com Nix Flake
+## 3. Instalação e Execução com Nix Flake e Containers
 
-O projeto adota ambiente puramente reprodutível. Todas as dependências do sistema, runtime Python, PostgreSQL e utilitários de compilação são provisionados pelo Nix.
+O projeto adota ambiente puramente reprodutível. O Nix provê o runtime Python, ferramentas C/C++ e LSPs a partir do `pyproject.toml`, enquanto o PostgreSQL 16 é executado em container isolado via **Docker ou Podman**, simplificando o flake ao máximo.
 
 ### 3.1. Entrar no Ambiente de Desenvolvimento
 No diretório raiz do projeto, execute:
@@ -75,12 +75,25 @@ No diretório raiz do projeto, execute:
 nix develop
 ```
 
-O hook do Nix irá automaticamente:
-1. Configurar o diretório isolado do PostgreSQL local em `.postgres/`.
-2. Inicializar o cluster com superusuário `postgres` e porta `5433` (sem conflitar com serviços existentes).
-3. Iniciar o daemon do PostgreSQL e criar o banco `setic_qualidade`.
-4. Criar o ambiente virtual `.venv` e sincronizar as dependências declaradas no `pyproject.toml` via `uv`.
-5. Expor os aliases de inicialização rápida.
+O hook simplificado do Nix irá:
+1. Criar o ambiente virtual `.venv` e sincronizar as dependências declaradas no `pyproject.toml` via `uv`.
+2. Configurar a variável `DATABASE_URL` apontando para o container na porta padrão `5432`.
+3. Disponibilizar os comandos de automação do container e dos serviços.
+
+### 3.2. Gerenciamento do Banco de Dados via Container
+
+Você pode subir o banco de dados PostgreSQL 16 usando Podman, Docker ou Docker Compose:
+
+```bash
+# Iniciar o container PostgreSQL (detecta Podman ou Docker automaticamente)
+iniciar-db
+
+# Ou via docker-compose diretamente:
+docker compose up -d  # ou: podman-compose up -d
+
+# Para encerrar o container:
+parar-db
+```
 
 ---
 

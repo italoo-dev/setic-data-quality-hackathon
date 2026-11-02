@@ -40,6 +40,7 @@ Cada commit deve representar uma única camada arquitetural ou unidade lógica i
 | `docs` | `(agents)` | Atualizações em regras de governança, diretrizes e contratos de IA. |
 | `feat` | `(packaging)` | Configuração de empacotamento declarativo (`pyproject.toml`). |
 | `feat` | `(nix)` | Ambiente reprodutível, derivações e shell de desenvolvimento (`flake.nix`). |
+| `feat` | `(infra)` | Configuração de containers Docker/Podman para o banco de dados (`docker-compose.yml`). |
 | `feat` | `(database)` | Camada de persistência, modelos SQLAlchemy e sessões. |
 | `feat` | `(validators)` | Validador canônico imutável de CPF, CNPJ, IBGE e datas. |
 | `feat` | `(engine)` | Motor híbrido de regras de validação (regras núcleo + regras dinâmicas). |

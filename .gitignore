@@ -3,6 +3,7 @@
 .cache/
 .direnv/
 .envrc
+result*
 __pycache__/
 *.py[cod]
 *$py.class

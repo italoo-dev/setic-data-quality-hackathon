@@ -17,12 +17,12 @@
         pyproject = builtins.fromTOML (builtins.readFile ./pyproject.toml);
         _ = pyproject-nix.lib.project.loadPyproject { projectRoot = ./.; };
       in
-      with pkgs; {
-        packages.default = stdenv.mkDerivation {
+      {
+        packages.default = pkgs.stdenv.mkDerivation {
           pname = pyproject.project.name;
           version = pyproject.project.version;
           src = ./.;
-          nativeBuildInputs = [ python312 uv pkg-config gcc ];
+          nativeBuildInputs = with pkgs; [ python312 uv pkg-config gcc ];
           buildPhase = "true";
           installPhase = ''
             mkdir -p $out/lib
@@ -30,9 +30,9 @@
           '';
         };
 
-        devShells.default = mkShell {
+        devShells.default = pkgs.mkShell {
           name = "${pyproject.project.name}-devshell";
-          packages = [
+          packages = with pkgs; [
             python312
             uv
             ruff

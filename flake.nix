@@ -39,6 +39,7 @@
       {
         checks = {
           inherit pre-commit-check;
+          package = self.packages.${system}.default;
         };
 
         packages.default = pkgs.stdenv.mkDerivation {

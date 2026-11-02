@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  flake-checks:
+    name: Nix Flake Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v16
+
+      - name: Setup Nix Magic Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v10
+
+      - name: Run Nix Flake Checks (Hooks & Package Derivation)
+        run: nix flake check
+
+      - name: Build Default Package
+        run: nix build
+
+  tests-and-coverage:
+    name: Automated Tests & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v16
+
+      - name: Setup Nix Magic Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v10
+
+      - name: Run Test Suite with Coverage
+        run: |
+          nix develop --command bash -c "
+            export DATABASE_URL='sqlite:///:memory:'
+            coverage run -m pytest backend/tests frontend/tests -v
+            coverage report
+            coverage xml -o coverage.xml
+          "
+
+      - name: Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.xml

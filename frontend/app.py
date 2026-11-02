@@ -17,9 +17,7 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
-import requests
 import streamlit as st
-from sqlalchemy.orm import Session
 
 # Previne que o diretório 'frontend' cause sombreamento no sys.path do Streamlit
 _ROOT_DIR = str(Path(__file__).resolve().parent.parent)
@@ -30,10 +28,11 @@ while _FRONTEND_DIR in sys.path:
 if _ROOT_DIR not in sys.path:
     sys.path.insert(0, _ROOT_DIR)
 
-from backend.database import RegistroAuditoria, RegraValidacao, SessionLocal, init_db  # noqa: E402
-from backend.engine.pipeline import ValidationPipeline  # noqa: E402
-from backend.repositories.audit import AuditRepository  # noqa: E402
-from backend.repositories.rules import RuleRepository  # noqa: E402
+from backend.schemas import (  # noqa: E402
+    RegraValidacaoAtualizacao,
+    RegraValidacaoCriacao,
+)
+from frontend.client import ApiError, SeticApiClient  # noqa: E402
 
 # Configuração da Página Streamlit
 st.set_page_config(
@@ -44,7 +43,16 @@ st.set_page_config(
 )
 
 # Constantes e Endereço da API REST
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+API_URL = os.getenv("API_URL", "http://localhost:8000").rstrip("/")
+
+
+@st.cache_resource
+def obter_cliente_api() -> SeticApiClient:
+    """Retorna a instância singleton do cliente REST para comunicação com o backend."""
+    return SeticApiClient(base_url=API_URL)
+
+
+cliente_api = obter_cliente_api()
 
 # Estilos CSS Personalizados
 st.markdown(
@@ -93,55 +101,6 @@ st.markdown(
 )
 
 
-def obter_sessao_db() -> Session:
-    """Garante a inicialização das tabelas e retorna uma sessão do banco de dados."""
-    init_db()
-    return SessionLocal()
-
-
-def consultar_api_saude() -> dict[str, object] | None:
-    """Verifica a conectividade com a API FastAPI."""
-    try:
-        r = requests.get(f"{API_URL}/api/v1/saude", timeout=1.5)
-        if r.status_code == 200:
-            return r.json()
-    except Exception:
-        pass
-    return None
-
-
-def executar_validacao(payload: dict[str, object]) -> tuple[int, dict[str, object]]:
-    """Executa a validação via API REST ou fallback direto para o motor embutido."""
-    # 1. Tentar via API HTTP FastAPI
-    try:
-        r = requests.post(
-            f"{API_URL}/api/v1/validar",
-            data=json.dumps(payload),
-            headers={"Content-Type": "application/json"},
-            timeout=5.0,
-        )
-        res_json = r.json()
-        return r.status_code, res_json if isinstance(res_json, dict) else {}
-    except Exception:
-        # 2. Fallback direto para o pipeline e banco local
-        db = obter_sessao_db()
-        try:
-            pipeline = ValidationPipeline(
-                rule_repo=RuleRepository(db),
-                audit_repo=AuditRepository(db),
-            )
-            raw_dados = payload.get("dados")
-            dados_dict = raw_dados if isinstance(raw_dados, dict) else {}
-            sistema_origem = str(payload.get("sistema_origem", "STREAMLIT_FALLBACK"))
-            res = pipeline.execute(
-                dados_entrada=dados_dict,
-                sistema_origem=sistema_origem,
-            )
-            return res.status_http, res.to_dict()
-        finally:
-            db.close()
-
-
 # =====================================================================
 # BARRA LATERAL (SIDEBAR)
 # =====================================================================
@@ -153,14 +112,14 @@ with st.sidebar:
     st.caption("Coordenação de Análise e Gestão de Dados")
     st.markdown("---")
 
-    # Status de Conexão com o Gateway
-    info_saude = consultar_api_saude()
+    # Status de Conexão com o Gateway REST
+    info_saude = cliente_api.consultar_saude()
     if info_saude and info_saude.get("status") == "operacional":
         st.success(f"🟢 **API Conectada** (v{info_saude.get('versao')})")
         st.caption(f"IBGE: {info_saude.get('municipios_ibge_indexados')} municípios ativos")
     else:
-        st.warning("🟡 **API Offline (Modo Direto DB)**")
-        st.caption("O painel está operando com conexão direta ao PostgreSQL/SQLite.")
+        st.error("🔴 **API Desconectada**")
+        st.caption(f"Não foi possível conectar a {API_URL}. Inicie a API FastAPI.")
 
     st.markdown("---")
     menu_selecionado = st.radio(
@@ -203,65 +162,57 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
         "Visão analítica das transações de dados interceptadas, taxas de rejeição e gargalos por sistema emissor."
     )
 
-    db = obter_sessao_db()
-    try:
-        # 1. Totalizadores
-        total = db.query(RegistroAuditoria).count()
-        total_sucessos = (
-            db.query(RegistroAuditoria).filter(RegistroAuditoria.sucesso == True).count()  # noqa: E712
+    metricas = cliente_api.obter_metricas()
+    if metricas is None:
+        st.error(
+            f"⚠️ Não foi possível obter as métricas operacionais. "
+            f"Certifique-se de que a API da SETIC esteja ativa em `{API_URL}`."
         )
-        total_bloqueios = (
-            db.query(RegistroAuditoria).filter(RegistroAuditoria.sucesso == False).count()  # noqa: E712
-        )
-        taxa_rejeicao = (total_bloqueios / total * 100) if total > 0 else 0.0
-
-        latencias = [
-            r[0]
-            for r in db.query(RegistroAuditoria.tempo_processamento_ms).limit(500).all()
-            if r[0] is not None
-        ]
-        latencia_media = (sum(latencias) / len(latencias)) if latencias else 0.0
-
+    else:
         # Cards KPI no topo
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            st.metric("Total de Requisições", f"{total:,}".replace(",", "."))
+            st.metric("Total de Requisições", f"{metricas.total_requisicoes:,}".replace(",", "."))
         with c2:
-            st.metric("Cargas Normalizadas", f"{total_sucessos:,}".replace(",", "."))
+            st.metric("Cargas Normalizadas", f"{metricas.total_sucessos:,}".replace(",", "."))
         with c3:
             st.metric(
                 "Taxa de Bloqueio Estrito",
-                f"{taxa_rejeicao:.1f}%",
-                delta=f"-{total_bloqueios} rejeições" if total_bloqueios > 0 else "0",
+                f"{metricas.taxa_rejeicao_percentual:.1f}%",
+                delta=f"-{metricas.total_bloqueios} rejeições"
+                if metricas.total_bloqueios > 0
+                else "0",
                 delta_color="inverse",
             )
         with c4:
-            st.metric("Latência Média", f"{latencia_media:.2f} ms")
+            st.metric("Latência Média", f"{metricas.tempo_medio_processamento_ms:.2f} ms")
 
         st.markdown("---")
 
-        # 2. Gráficos de Análise
+        # Gráficos de Análise
         col_esq, col_dir = st.columns(2)
 
         with col_esq:
             st.subheader("Volume por Sistema de Origem")
-            sistemas_dados = db.query(
-                RegistroAuditoria.sistema_origem,
-                RegistroAuditoria.sucesso,
-            ).all()
+            if metricas.volume_por_sistema:
+                linhas_grafico: list[dict[str, object]] = []
+                for s in metricas.volume_por_sistema:
+                    linhas_grafico.append(
+                        {
+                            "sistema_origem": s.sistema_origem,
+                            "status": "Aprovado (200)",
+                            "quantidade": s.aprovados,
+                        }
+                    )
+                    linhas_grafico.append(
+                        {
+                            "sistema_origem": s.sistema_origem,
+                            "status": "Rejeitado (422)",
+                            "quantidade": s.rejeitados,
+                        }
+                    )
 
-            if sistemas_dados:
-                df_sis = pd.DataFrame(sistemas_dados, columns=["sistema_origem", "sucesso"])
-                df_sis["status"] = df_sis["sucesso"].apply(
-                    lambda x: "Aprovado (200)" if x else "Rejeitado (422)"
-                )
-                df_agrupado = (
-                    df_sis.groupby(["sistema_origem", "status"])
-                    .size()
-                    .to_frame("quantidade")
-                    .reset_index()
-                )
-
+                df_agrupado = pd.DataFrame(linhas_grafico)
                 fig_sis = px.bar(
                     df_agrupado,
                     x="sistema_origem",
@@ -281,24 +232,15 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
 
         with col_dir:
             st.subheader("Campos com Maior Índice de Defeito")
-            falhas = (
-                db.query(RegistroAuditoria.erros_detectados)
-                .filter(RegistroAuditoria.sucesso == False)  # noqa: E712
-                .all()
-            )
-
-            contagem_campos: dict[str, int] = {}
-            for item in falhas:
-                lista_erros = item[0] if item else None
-                if isinstance(lista_erros, list):
-                    for erro in lista_erros:
-                        if isinstance(erro, dict):
-                            campo = str(erro.get("campo", "desconhecido"))
-                            contagem_campos[campo] = contagem_campos.get(campo, 0) + 1
-
-            if contagem_campos:
+            if metricas.top_campos_rejeitados:
                 df_campos = pd.DataFrame(
-                    list(contagem_campos.items()), columns=["Campo", "Ocorrências"]
+                    [
+                        {
+                            "Campo": it.nome,
+                            "Ocorrências": it.quantidade,
+                        }
+                        for it in metricas.top_campos_rejeitados
+                    ]
                 ).sort_values(by="Ocorrências", ascending=True)
 
                 fig_campos = px.bar(
@@ -314,27 +256,21 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
             else:
                 st.success("Nenhuma falha de validação registrada.")
 
-        # 3. Tabela de Regras Mais Transgredidas
+        # Tabela de Regras Mais Transgredidas
         st.subheader("Detalhamento de Regras Mais Violadas")
-        contagem_regras: dict[str, int] = {}
-        for item in falhas:
-            lista_erros = item[0] if item else None
-            if isinstance(lista_erros, list):
-                for erro in lista_erros:
-                    if isinstance(erro, dict):
-                        regra = str(erro.get("regra_violada", "OUTRA"))
-                        contagem_regras[regra] = contagem_regras.get(regra, 0) + 1
-
-        if contagem_regras:
+        if metricas.top_regras_violadas:
             df_regras = pd.DataFrame(
-                list(contagem_regras.items()), columns=["Código da Regra", "Total de Bloqueios"]
+                [
+                    {
+                        "Código da Regra": it.nome,
+                        "Total de Bloqueios": it.quantidade,
+                    }
+                    for it in metricas.top_regras_violadas
+                ]
             ).sort_values(by="Total de Bloqueios", ascending=False)
             st.dataframe(df_regras, width="stretch", hide_index=True)
         else:
             st.caption("Nenhum bloqueio registrado.")
-
-    finally:
-        db.close()
 
 
 # =====================================================================
@@ -353,10 +289,13 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
         """
     )
 
-    db = obter_sessao_db()
-    try:
-        todas_regras = db.query(RegraValidacao).order_by(RegraValidacao.id.asc()).all()
+    todas_regras = cliente_api.listar_regras()
 
+    if todas_regras is None:
+        st.error(
+            f"⚠️ Não foi possível carregar as regras de validação a partir da API REST (`{API_URL}`)."
+        )
+    else:
         tab_lista, tab_cadastro, tab_edicao, tab_import_export = st.tabs(
             [
                 "📋 Regras Ativas no Sistema",
@@ -369,22 +308,21 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
         with tab_lista:
             st.subheader("Catálogo de Regras do Motor")
 
-            tabela_dados = []
-            for r in todas_regras:
-                tipo = "🔒 NÚCLEO (IMUTÁVEL)" if r.eh_imutavel else "⚡ DINÂMICA (CAGD)"
-                status_txt = "🟢 Ativa" if r.ativo else "⚪ Inativa"
-                tabela_dados.append(
-                    {
-                        "ID": r.id,
-                        "Campo": r.campo,
-                        "Nome da Regra": r.nome_regra,
-                        "Classificação": tipo,
-                        "Padrão Regex": r.padrao_regex or "(Algorítmico / Fuzzy)",
-                        "Obrigatório": "Sim" if r.obrigatorio else "Não",
-                        "Status": status_txt,
-                        "Imutável": r.eh_imutavel,
-                    }
-                )
+            tabela_dados = [
+                {
+                    "ID": r.id,
+                    "Campo": r.campo,
+                    "Nome da Regra": r.nome_regra,
+                    "Classificação": "🔒 NÚCLEO (IMUTÁVEL)"
+                    if r.eh_imutavel
+                    else "⚡ DINÂMICA (CAGD)",
+                    "Padrão Regex": r.padrao_regex or "(Algorítmico / Fuzzy)",
+                    "Obrigatório": "Sim" if r.obrigatorio else "Não",
+                    "Status": "🟢 Ativa" if r.ativo else "⚪ Inativa",
+                    "Imutável": r.eh_imutavel,
+                }
+                for r in todas_regras
+            ]
 
             df_tabela = pd.DataFrame(tabela_dados)
             st.dataframe(
@@ -412,18 +350,22 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                     st.write("")
                     btn_label = "Desativar" if regra_escolhida.ativo else "Ativar"
                     if st.button(f"🔄 {btn_label}", width="stretch"):
-                        regra_escolhida.ativo = not regra_escolhida.ativo
-                        db.commit()
-                        st.success(f"Regra {regra_escolhida.id} atualizada com sucesso!")
-                        st.rerun()
+                        try:
+                            cliente_api.alternar_status_regra(regra_escolhida.id)
+                            st.success(f"Regra [{regra_escolhida.id}] alternada com sucesso!")
+                            st.rerun()
+                        except ApiError as err:
+                            st.error(err.detail)
                 with col_act2:
                     st.write("")
                     st.write("")
                     if st.button("🗑️ Excluir", width="stretch", type="secondary"):
-                        db.delete(regra_escolhida)
-                        db.commit()
-                        st.warning(f"Regra {regra_escolhida.id} excluída!")
-                        st.rerun()
+                        try:
+                            cliente_api.excluir_regra(regra_escolhida.id)
+                            st.warning(f"Regra [{regra_escolhida.id}] excluída com sucesso!")
+                            st.rerun()
+                        except ApiError as err:
+                            st.error(err.detail)
             else:
                 st.info("Nenhuma regra dinâmica customizada cadastrada.")
 
@@ -464,7 +406,6 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                     placeholder="Explicação sobre a fundamentação e uso da regra pela administração estadual.",
                 )
 
-                # Testador ao vivo do regex dentro do formulário
                 st.markdown("**🧪 Testador Imediato do Regex**")
                 texto_teste = st.text_input(
                     "Valor de Teste para o Regex",
@@ -484,24 +425,33 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                 btn_salvar = st.form_submit_button("💾 Salvar Regra Dinâmica", type="primary")
 
                 if btn_salvar:
-                    if not novo_campo or not novo_nome or not novo_regex or not nova_mensagem:
+                    if (
+                        not novo_campo
+                        or not novo_nome
+                        or not novo_regex
+                        or not nova_mensagem
+                        or not novo_formato
+                    ):
                         st.error("Por favor, preencha todos os campos obrigatórios (*).")
                     else:
-                        regra = RegraValidacao(
-                            campo=novo_campo.strip().lower(),
-                            nome_regra=novo_nome.strip(),
-                            descricao=nova_descricao.strip() if nova_descricao else None,
-                            padrao_regex=novo_regex.strip(),
-                            mensagem_erro=nova_mensagem.strip(),
-                            formato_esperado=novo_formato.strip(),
-                            obrigatorio=nova_obrigatoria,
-                            ativo=True,
-                            eh_imutavel=False,
-                        )
-                        db.add(regra)
-                        db.commit()
-                        st.success(f"Regra para o campo '{novo_campo}' criada com sucesso!")
-                        st.rerun()
+                        try:
+                            payload_regra = RegraValidacaoCriacao(
+                                campo=novo_campo.strip().lower(),
+                                nome_regra=novo_nome.strip(),
+                                descricao=nova_descricao.strip() if nova_descricao else None,
+                                padrao_regex=novo_regex.strip(),
+                                mensagem_erro=nova_mensagem.strip(),
+                                formato_esperado=novo_formato.strip(),
+                                obrigatorio=nova_obrigatoria,
+                                ativo=True,
+                            )
+                            cliente_api.criar_regra(payload_regra)
+                            st.success(f"Regra para o campo '{novo_campo}' criada com sucesso!")
+                            st.rerun()
+                        except ApiError as err:
+                            st.error(err.detail)
+                        except Exception as ex:
+                            st.error(f"Erro na criação da regra: {ex}")
 
         with tab_edicao:
             st.subheader("✏️ Edição de Regra Dinâmica")
@@ -530,7 +480,8 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                             "Nome da Regra*", value=regra_para_editar.nome_regra
                         )
                         edit_formato = st.text_input(
-                            "Formato Esperado*", value=regra_para_editar.formato_esperado
+                            "Formato Esperado*",
+                            value=regra_para_editar.formato_esperado,
                         )
                     with col_e2:
                         edit_regex = st.text_input(
@@ -546,7 +497,8 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                         col_chk1, col_chk2 = st.columns(2)
                         with col_chk1:
                             edit_obrigatorio = st.checkbox(
-                                "Obrigatório?", value=regra_para_editar.obrigatorio
+                                "Obrigatório?",
+                                value=regra_para_editar.obrigatorio,
                             )
                         with col_chk2:
                             edit_ativo = st.checkbox("Ativo?", value=regra_para_editar.ativo)
@@ -556,7 +508,6 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                         value=regra_para_editar.descricao or "",
                     )
 
-                    # Testador ao vivo do regex dentro do formulário de edição
                     st.markdown("**🧪 Testador Imediato do Regex**")
                     texto_teste_edit = st.text_input(
                         "Valor de Teste para o Regex",
@@ -589,23 +540,27 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                         else:
                             try:
                                 re.compile(edit_regex.strip())
-                                regra_para_editar.campo = edit_campo.strip().lower()
-                                regra_para_editar.nome_regra = edit_nome.strip()
-                                regra_para_editar.formato_esperado = edit_formato.strip()
-                                regra_para_editar.padrao_regex = edit_regex.strip()
-                                regra_para_editar.mensagem_erro = edit_mensagem.strip()
-                                regra_para_editar.obrigatorio = edit_obrigatorio
-                                regra_para_editar.ativo = edit_ativo
-                                regra_para_editar.descricao = (
-                                    edit_descricao.strip() if edit_descricao else None
+                                payload_atualizacao = RegraValidacaoAtualizacao(
+                                    campo=edit_campo.strip().lower(),
+                                    nome_regra=edit_nome.strip(),
+                                    formato_esperado=edit_formato.strip(),
+                                    padrao_regex=edit_regex.strip(),
+                                    mensagem_erro=edit_mensagem.strip(),
+                                    obrigatorio=edit_obrigatorio,
+                                    ativo=edit_ativo,
+                                    descricao=edit_descricao.strip() if edit_descricao else None,
                                 )
-                                db.commit()
+                                cliente_api.atualizar_regra(
+                                    regra_para_editar.id, payload_atualizacao
+                                )
                                 st.success(
                                     f"Regra [{regra_para_editar.id}] atualizada com sucesso!"
                                 )
                                 st.rerun()
                             except re.error as err:
                                 st.error(f"Padrão Regex inválido: {err}")
+                            except ApiError as err:
+                                st.error(err.detail)
 
         with tab_import_export:
             st.subheader("💾 Exportação e Importação de Regras Dinâmicas")
@@ -622,38 +577,20 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                     f"Total de regras dinâmicas prontas para exportação: **{len(regras_dinamicas_exp)}**"
                 )
 
-                dados_exportacao = {
-                    "versao": "1.0",
-                    "gerado_em": pd.Timestamp.now().isoformat(),
-                    "total_regras": len(regras_dinamicas_exp),
-                    "regras": [
-                        {
-                            "campo": r.campo,
-                            "nome_regra": r.nome_regra,
-                            "descricao": r.descricao,
-                            "padrao_regex": r.padrao_regex,
-                            "mensagem_erro": r.mensagem_erro,
-                            "formato_esperado": r.formato_esperado,
-                            "obrigatorio": r.obrigatorio,
-                            "ativo": r.ativo,
-                        }
-                        for r in regras_dinamicas_exp
-                    ],
-                }
-
-                json_export_str = json.dumps(dados_exportacao, indent=2, ensure_ascii=False)
-
-                st.download_button(
-                    label="📥 Baixar Regras em JSON",
-                    data=json_export_str,
-                    file_name="regras_dinamicas_cagd.json",
-                    mime="application/json",
-                    width="stretch",
-                )
-
-                if regras_dinamicas_exp:
+                dados_exportacao = cliente_api.exportar_regras()
+                if dados_exportacao:
+                    json_export_str = dados_exportacao.model_dump_json(indent=2)
+                    st.download_button(
+                        label="📥 Baixar Regras em JSON",
+                        data=json_export_str,
+                        file_name="regras_dinamicas_cagd.json",
+                        mime="application/json",
+                        width="stretch",
+                    )
                     with st.expander("Pré-visualizar JSON de Exportação"):
-                        st.json(dados_exportacao)
+                        st.json(dados_exportacao.model_dump())
+                else:
+                    st.warning("Não foi possível gerar os dados de exportação a partir da API.")
 
             with col_imp:
                 st.markdown("### 📥 Importar Conjunto de Regras")
@@ -692,47 +629,33 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                             type="primary",
                             width="stretch",
                         ):
-                            from backend.repositories.rules import RuleRepository
+                            try:
+                                resultado_imp = cliente_api.importar_regras(
+                                    regras=regras_para_importar,
+                                    sobrescrever=sobrescrever_existentes,
+                                )
 
-                            rule_repo = RuleRepository(db)
-                            resultado_imp = rule_repo.importar_regras(
-                                regras=regras_para_importar,
-                                sobrescrever=sobrescrever_existentes,
-                            )
+                                col_m1, col_m2, col_m3 = st.columns(3)
+                                col_m1.metric("Criadas", resultado_imp.total_criadas)
+                                col_m2.metric("Atualizadas", resultado_imp.total_atualizadas)
+                                col_m3.metric("Ignoradas", resultado_imp.total_ignoradas)
 
-                            col_m1, col_m2, col_m3 = st.columns(3)
-                            col_m1.metric(
-                                "Criadas",
-                                int(str(resultado_imp.get("total_criadas", 0))),
-                            )
-                            col_m2.metric(
-                                "Atualizadas",
-                                int(str(resultado_imp.get("total_atualizadas", 0))),
-                            )
-                            col_m3.metric(
-                                "Ignoradas",
-                                int(str(resultado_imp.get("total_ignoradas", 0))),
-                            )
+                                if resultado_imp.mensagens:
+                                    with st.expander("Ver Relatório Detalhado", expanded=True):
+                                        for m in resultado_imp.mensagens:
+                                            st.write(f"- {m}")
 
-                            raw_msgs = resultado_imp.get("mensagens")
-                            if isinstance(raw_msgs, list) and raw_msgs:
-                                with st.expander("Ver Relatório Detalhado", expanded=True):
-                                    for m in raw_msgs:
-                                        st.write(f"- {m}")
+                                if resultado_imp.erros:
+                                    for err in resultado_imp.erros:
+                                        st.error(f"Erro: {err}")
 
-                            raw_erros = resultado_imp.get("erros")
-                            if isinstance(raw_erros, list) and raw_erros:
-                                for err in raw_erros:
-                                    st.error(f"Erro: {err}")
-
-                            st.success("Importação concluída!")
-                            st.rerun()
+                                st.success("Importação concluída!")
+                                st.rerun()
+                            except ApiError as err:
+                                st.error(err.detail)
 
                     except Exception as ex:
                         st.error(f"Falha ao processar arquivo JSON: {ex}")
-
-    finally:
-        db.close()
 
 
 # =====================================================================
@@ -750,7 +673,7 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
     )
 
     # Cenários pré-configurados
-    cenarios = {
+    cenarios: dict[str, dict[str, object]] = {
         "Cenário 1: Normalização Permissiva (Porto Velho 'p. velho', Data Texto, CPF)": {
             "sistema_origem": "SISTEMA_RH_ESTADUAL",
             "dados": {
@@ -797,12 +720,14 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
     with col_cenario:
         escolha_cenario = st.selectbox("Carregar Cenário de Exemplo:", list(cenarios.keys()))
     with col_origem:
+        cenario_selecionado = cenarios[escolha_cenario]
+        sistema_origem_default = str(cenario_selecionado.get("sistema_origem", ""))
         sistema_origem_input = st.text_input(
             "Sistema de Origem:",
-            value=cenarios[escolha_cenario]["sistema_origem"],
+            value=sistema_origem_default,
         )
 
-    json_inicial = json.dumps(cenarios[escolha_cenario]["dados"], indent=2, ensure_ascii=False)
+    json_inicial = json.dumps(cenario_selecionado.get("dados", {}), indent=2, ensure_ascii=False)
     payload_texto = st.text_area(
         "Payload de Dados (JSON de Entrada):",
         value=json_inicial,
@@ -816,20 +741,19 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
             st.error(f"Erro de sintaxe JSON: {err}")
             dados_dict = None
 
-        if dados_dict is not None:
-            payload_envio = {
-                "sistema_origem": (sistema_origem_input or "").strip() or "SANDBOX_STREAMLIT",
-                "dados": dados_dict,
-            }
-
-            status_code, resultado = executar_validacao(payload_envio)
+        if dados_dict is not None and isinstance(dados_dict, dict):
+            origem = (sistema_origem_input or "").strip() or "SANDBOX_STREAMLIT"
+            status_code, resultado = cliente_api.validar(
+                dados=dados_dict,
+                sistema_origem=origem,
+            )
 
             st.markdown("---")
             if status_code == 200:
                 st.success("✅ **HTTP 200 OK - Carga Homologada e Normalizada com Sucesso!**")
                 st.caption(
                     f"Protocolo de Auditoria: `{resultado.get('protocolo')}` | "
-                    f"Latência: {resultado.get('tempo_processamento_ms', 0):.2f} ms"
+                    f"Latência: {float(str(resultado.get('tempo_processamento_ms', 0.0))):.2f} ms"
                 )
 
                 # Relação de transformações aplicadas
@@ -846,37 +770,50 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
                     st.json(dados_dict)
                 with col_depois:
                     st.subheader("Dados Canônicos Normalizados")
-                    st.json(resultado.get("dados_normalizados", {}))
+                    raw_norm = resultado.get("dados_normalizados")
+                    st.json(raw_norm if isinstance(raw_norm, dict) else {})
 
             elif status_code == 422:
                 st.error("🛑 **HTTP 422 Unprocessable Entity - Persistência Bloqueada!**")
                 st.caption(
                     f"Protocolo de Auditoria: `{resultado.get('protocolo')}` | "
-                    f"Latência: {resultado.get('tempo_processamento_ms', 0):.2f} ms"
+                    f"Latência: {float(str(resultado.get('tempo_processamento_ms', 0.0))):.2f} ms"
                 )
 
                 st.markdown(f"**Motivo:** {resultado.get('mensagem')}")
 
-                erros = resultado.get("erros", [])
+                raw_erros = resultado.get("erros", [])
+                erros = (
+                    [e for e in raw_erros if isinstance(e, dict)]
+                    if isinstance(raw_erros, list)
+                    else []
+                )
                 if erros:
                     st.markdown("**🔍 Diagnósticos Analíticos de Inconsistência:**")
                     df_erros = pd.DataFrame(erros)
+                    colunas_exibicao = [
+                        c
+                        for c in [
+                            "campo",
+                            "regra_violada",
+                            "valor_rejeitado",
+                            "formato_esperado",
+                            "mensagem",
+                        ]
+                        if c in df_erros.columns
+                    ]
                     st.dataframe(
-                        df_erros[
-                            [
-                                "campo",
-                                "regra_violada",
-                                "valor_rejeitado",
-                                "formato_esperado",
-                                "mensagem",
-                            ]
-                        ],
+                        df_erros[colunas_exibicao],
                         width="stretch",
                         hide_index=True,
                     )
 
                 st.subheader("Resposta Completa da API (422)")
                 st.json(resultado)
+            else:
+                st.error(
+                    f"Erro na comunicação com a API (Status {status_code}): {resultado.get('mensagem')}"
+                )
 
 
 # =====================================================================
@@ -889,69 +826,70 @@ elif menu_selecionado == "📜 Trilha de Auditoria e Telemetria":
         "Rastreabilidade completa de todas as requisições submetidas à plataforma para fins de conformidade e governança."
     )
 
-    db = obter_sessao_db()
-    try:
-        col_filtro1, col_filtro2, col_filtro3 = st.columns(3)
-        with col_filtro1:
-            filtro_sistema = st.text_input("Filtrar por Sistema de Origem:")
-        with col_filtro2:
-            filtro_status = st.selectbox(
-                "Filtrar por Status:", ["Todos", "Aprovados (200)", "Bloqueados (422)"]
+    col_filtro1, col_filtro2, col_filtro3 = st.columns(3)
+    with col_filtro1:
+        filtro_sistema = st.text_input("Filtrar por Sistema de Origem:")
+    with col_filtro2:
+        filtro_status = st.selectbox(
+            "Filtrar por Status:", ["Todos", "Aprovados (200)", "Bloqueados (422)"]
+        )
+    with col_filtro3:
+        limite = st.slider("Quantidade de Registros:", min_value=10, max_value=200, value=50)
+
+    sucesso_param: bool | None = None
+    if filtro_status == "Aprovados (200)":
+        sucesso_param = True
+    elif filtro_status == "Bloqueados (422)":
+        sucesso_param = False
+
+    sistema_param = filtro_sistema.strip() if filtro_sistema.strip() else None
+
+    registros = cliente_api.consultar_auditoria(
+        sistema_origem=sistema_param,
+        sucesso=sucesso_param,
+        limite=limite,
+    )
+
+    if registros is None:
+        st.error(
+            f"⚠️ Não foi possível carregar os registros de auditoria a partir da API REST (`{API_URL}`)."
+        )
+    elif registros:
+        lista_tabela = []
+        for r in registros:
+            criado_em_str = str(r.get("criado_em") or "-")
+            tempo_ms = float(str(r.get("tempo_processamento_ms", 0.0)))
+            lista_tabela.append(
+                {
+                    "Protocolo": r.get("protocolo"),
+                    "Sistema de Origem": r.get("sistema_origem"),
+                    "Status": "✅ 200 OK" if r.get("sucesso") else "🛑 422 Rejeitado",
+                    "Falhas": r.get("quantidade_erros", 0),
+                    "Latência (ms)": f"{tempo_ms:.2f}",
+                    "Data/Hora": criado_em_str,
+                }
             )
-        with col_filtro3:
-            limite = st.slider("Quantidade de Registros:", min_value=10, max_value=200, value=50)
 
-        consulta = db.query(RegistroAuditoria)
-        if filtro_sistema:
-            consulta = consulta.filter(
-                RegistroAuditoria.sistema_origem.ilike(f"%{filtro_sistema}%")
-            )
-        if filtro_status == "Aprovados (200)":
-            consulta = consulta.filter(RegistroAuditoria.sucesso == True)  # noqa: E712
-        elif filtro_status == "Bloqueados (422)":
-            consulta = consulta.filter(RegistroAuditoria.sucesso == False)  # noqa: E712
+        df_auditoria = pd.DataFrame(lista_tabela)
+        st.dataframe(df_auditoria, width="stretch", hide_index=True)
 
-        registros = consulta.order_by(RegistroAuditoria.criado_em.desc()).limit(limite).all()
+        st.markdown("---")
+        st.subheader("Inspecionar Registro Detalhado")
+        protocolos = [str(r.get("protocolo")) for r in registros if r.get("protocolo")]
+        proto_sel = st.selectbox("Selecione o Protocolo:", protocolos)
 
-        if registros:
-            lista_tabela = []
-            for r in registros:
-                lista_tabela.append(
-                    {
-                        "Protocolo": r.protocolo,
-                        "Sistema de Origem": r.sistema_origem,
-                        "Status": "✅ 200 OK" if r.sucesso else "🛑 422 Rejeitado",
-                        "Falhas": r.quantidade_erros,
-                        "Latência (ms)": f"{r.tempo_processamento_ms:.2f}",
-                        "Data/Hora (UTC)": r.criado_em.strftime("%d/%m/%Y %H:%M:%S")
-                        if r.criado_em
-                        else "-",
-                    }
-                )
-
-            df_auditoria = pd.DataFrame(lista_tabela)
-            st.dataframe(df_auditoria, width="stretch", hide_index=True)
-
-            st.markdown("---")
-            st.subheader("Inspecionar Registro Detalhado")
-            protocolos = [r.protocolo for r in registros]
-            proto_sel = st.selectbox("Selecione o Protocolo:", protocolos)
-
-            registro_sel = next((r for r in registros if r.protocolo == proto_sel), None)
-            if registro_sel:
-                col_in, col_out = st.columns(2)
-                with col_in:
-                    st.write("**Payload de Entrada Recebido:**")
-                    st.json(registro_sel.dados_entrada)
-                with col_out:
-                    if registro_sel.sucesso:
-                        st.write("**Dados Normalizados Persistidos:**")
-                        st.json(registro_sel.dados_normalizados)
-                    else:
-                        st.write("**Erros Diagnósticos que Causaram o Bloqueio:**")
-                        st.json(registro_sel.erros_detectados)
-        else:
-            st.info("Nenhum registro de auditoria encontrado para os filtros selecionados.")
-
-    finally:
-        db.close()
+        registro_sel = next((r for r in registros if r.get("protocolo") == proto_sel), None)
+        if registro_sel:
+            col_in, col_out = st.columns(2)
+            with col_in:
+                st.write("**Payload de Entrada Recebido:**")
+                st.json(registro_sel.get("dados_entrada") or {})
+            with col_out:
+                if registro_sel.get("sucesso"):
+                    st.write("**Dados Normalizados Persistidos:**")
+                    st.json(registro_sel.get("dados_normalizados") or {})
+                else:
+                    st.write("**Erros Diagnósticos que Causaram o Bloqueio:**")
+                    st.json(registro_sel.get("erros_detectados") or {})
+    else:
+        st.info("Nenhum registro de auditoria encontrado para os filtros selecionados.")

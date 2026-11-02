@@ -186,9 +186,9 @@ class RegraValidacaoCriacao(BaseModel):
 
     campo: str = Field(..., min_length=2, max_length=64, description="Nome do campo a ser validado")
     nome_regra: str = Field(..., min_length=3, max_length=128, description="Título da regra")
-    descricao: str | None = Field(None, description="Detalhamento operacional da regra")
+    descricao: str | None = Field(default=None, description="Detalhamento operacional da regra")
     padrao_regex: str | None = Field(
-        None, max_length=512, description="Expressão regular para conferência"
+        default=None, max_length=512, description="Expressão regular para conferência"
     )
     mensagem_erro: str = Field(
         ..., min_length=5, description="Mensagem diagnóstica exibida em caso de falha"
@@ -203,14 +203,14 @@ class RegraValidacaoCriacao(BaseModel):
 class RegraValidacaoAtualizacao(BaseModel):
     """Esquema para atualização de uma regra dinâmica existente."""
 
-    campo: str | None = Field(None, min_length=2, max_length=64)
-    nome_regra: str | None = Field(None, min_length=3, max_length=128)
-    descricao: str | None = None
-    padrao_regex: str | None = Field(None, max_length=512)
-    mensagem_erro: str | None = Field(None, min_length=5)
-    formato_esperado: str | None = Field(None, min_length=3, max_length=256)
-    obrigatorio: bool | None = None
-    ativo: bool | None = None
+    campo: str | None = Field(default=None, min_length=2, max_length=64)
+    nome_regra: str | None = Field(default=None, min_length=3, max_length=128)
+    descricao: str | None = Field(default=None)
+    padrao_regex: str | None = Field(default=None, max_length=512)
+    mensagem_erro: str | None = Field(default=None, min_length=5)
+    formato_esperado: str | None = Field(default=None, min_length=3, max_length=256)
+    obrigatorio: bool | None = Field(default=None)
+    ativo: bool | None = Field(default=None)
 
 
 class RegraValidacaoResposta(BaseModel):
@@ -239,8 +239,8 @@ class RegraExportadaItem(BaseModel):
     nome_regra: str = Field(
         ..., min_length=3, max_length=128, description="Título descritivo da regra"
     )
-    descricao: str | None = Field(None, description="Detalhamento operacional")
-    padrao_regex: str | None = Field(None, max_length=512, description="Expressão regular")
+    descricao: str | None = Field(default=None, description="Detalhamento operacional")
+    padrao_regex: str | None = Field(default=None, max_length=512, description="Expressão regular")
     mensagem_erro: str = Field(..., min_length=5, description="Mensagem diagnóstica")
     formato_esperado: str = Field(..., min_length=3, max_length=256, description="Formato exigido")
     obrigatorio: bool = Field(default=False, description="Flag de obrigatoriedade")

@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 # Previne que o arquivo 'panel/app.py' cause sombreamento do pacote 'app' no sys.path do Streamlit
 _ROOT_DIR = str(Path(__file__).resolve().parent.parent)
 _PANEL_DIR = str(Path(__file__).resolve().parent)
+_LOGO_PATH = Path(_PANEL_DIR) / "assets" / "logo.svg"
 while _PANEL_DIR in sys.path:
     sys.path.remove(_PANEL_DIR)
 if _ROOT_DIR not in sys.path:
@@ -141,10 +142,8 @@ def executar_validacao(payload: dict[str, object]) -> tuple[int, dict[str, objec
 # =====================================================================
 
 with st.sidebar:
-    st.image(
-        "https://upload.wikimedia.org/wikipedia/commons/e/ea/Bandeira_de_Rond%C3%B4nia.svg",
-        width=80,
-    )
+    if _LOGO_PATH.exists():
+        st.image(str(_LOGO_PATH), width="stretch")
     st.title("SETIC / CAGD")
     st.caption("Coordenação de Análise e Gestão de Dados")
     st.markdown("---")

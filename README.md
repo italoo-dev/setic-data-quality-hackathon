@@ -58,7 +58,8 @@ Quando o dado possui **defeito estrutural, matemático, semântico ou calendári
 | **Nix Flake (`pyproject.nix`)** | Ambiente Puro & Reprodutível | Shell declarativo simplificado que analisa diretamente o `pyproject.toml`, provisionando Python 3.12, utilitários nativos e hooks de automação. |
 | **PostgreSQL 16 (Docker / Podman)** | Persistência Relacional em Container | Executado isoladamente via container (`docker-compose.yml`), persistindo regras dinâmicas (`RegraValidacao`) e telemetria (`RegistroAuditoria`). |
 | **Streamlit** | Painel Executivo da CAGD | Dashboard operacional em tempo real: cards KPI, gráficos de falha, gestão de regras e sandbox interativo de testes. |
-| **`brutils` & `validate-docbr`** | Identificadores Nacionais & IBGE | Validação matemática estrita de CPF/CNPJ (módulo 11), telefones Anatel, CEP e catálogo de localidades oficiais. |
+| **`brutils` & `validate-docbr`** | Identificadores Nacionais & IBGE | Validação matemática estrita de CPF/CNPJ (módulo 11) e resolução local de todos os 5.570 municípios brasileiros via `brutils/data/cities_code.json`, sem chamadas externas. |
+| **`phonenumbers` (libphonenumber)** | Padrão Telefônico Nacional & DDD | Validação e formatação oficial segundo especificações da Anatel e Google libphonenumber, eliminando listas manuais de DDDs. |
 | **`dateparser`** | Normalização Fuzzy de Datas | Reconhecimento inteligente de datas arbitrárias escritas em português do Brasil e bloqueio de datas impossíveis. |
 | **`RapidFuzz` & `Unidecode`** | Resolução Fonética e de Distância | Algoritmos C++ de distância de Levenshtein (*WRatio*) para aproximação de municípios informais contra o catálogo nacional de 5.570+ cidades. |
 

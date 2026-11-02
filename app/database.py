@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Generator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -17,7 +17,6 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Float,
-    ForeignKey,
     Index,
     Integer,
     String,
@@ -80,13 +79,13 @@ class RegraValidacao(Base):
     eh_imutavel: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
     atualizado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
 
@@ -130,7 +129,7 @@ class RegistroAuditoria(Base):
     tempo_processamento_ms: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         nullable=False,
         index=True,
     )
@@ -264,7 +263,10 @@ def popular_regras_iniciais(db: Any) -> None:
     for item in regras_iniciais:
         existente = (
             db.query(RegraValidacao)
-            .filter(RegraValidacao.campo == item["campo"], RegraValidacao.nome_regra == item["nome_regra"])
+            .filter(
+                RegraValidacao.campo == item["campo"],
+                RegraValidacao.nome_regra == item["nome_regra"],
+            )
             .first()
         )
         if not existente:

@@ -18,7 +18,6 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core_validators import (
-    ResultadoValidacao,
     validar_e_normalizar_cep,
     validar_e_normalizar_cnpj,
     validar_e_normalizar_cpf,
@@ -189,7 +188,9 @@ class MotorValidacao:
 
         # 1.6 Resolução Bidirecional e Aproximação Fuzzy de Município IBGE
         tem_municipio = "municipio" in dados_entrada and dados_entrada["municipio"] is not None
-        tem_codigo_ibge = "codigo_ibge" in dados_entrada and dados_entrada["codigo_ibge"] is not None
+        tem_codigo_ibge = (
+            "codigo_ibge" in dados_entrada and dados_entrada["codigo_ibge"] is not None
+        )
 
         if tem_municipio or tem_codigo_ibge:
             alvo_busca = dados_entrada.get("municipio") or dados_entrada.get("codigo_ibge")

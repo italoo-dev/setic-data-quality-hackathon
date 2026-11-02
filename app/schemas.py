@@ -60,7 +60,11 @@ class ErroDiagnosticoDetalhe(BaseModel):
     regra_violada: str = Field(
         ...,
         description="Código identificador da regra ou validação transgredida",
-        examples=["DIGITO_VERIFICADOR_INVALIDO", "DATA_IMPOSSIVEL_CALENDARIO", "MUNICIPIO_IBGE_NAO_ENCONTRADO"],
+        examples=[
+            "DIGITO_VERIFICADOR_INVALIDO",
+            "DATA_IMPOSSIVEL_CALENDARIO",
+            "MUNICIPIO_IBGE_NAO_ENCONTRADO",
+        ],
     )
     valor_rejeitado: Any = Field(
         ...,
@@ -167,9 +171,15 @@ class MetricasOperacionaisCAGD(BaseModel):
     total_bloqueios: int = Field(..., description="Total de cargas rejeitadas e bloqueadas")
     taxa_rejeicao_percentual: float = Field(..., description="Percentual de rejeição global")
     tempo_medio_processamento_ms: float = Field(..., description="Latência média de processamento")
-    volume_por_sistema: list[VolumeSistemaItem] = Field(..., description="Volume segregado por sistema emissor")
-    top_campos_rejeitados: list[ItemContagem] = Field(..., description="Campos que mais concentram falhas")
-    top_regras_violadas: list[ItemContagem] = Field(..., description="Regras que mais resultaram em bloqueio")
+    volume_por_sistema: list[VolumeSistemaItem] = Field(
+        ..., description="Volume segregado por sistema emissor"
+    )
+    top_campos_rejeitados: list[ItemContagem] = Field(
+        ..., description="Campos que mais concentram falhas"
+    )
+    top_regras_violadas: list[ItemContagem] = Field(
+        ..., description="Regras que mais resultaram em bloqueio"
+    )
 
 
 class RegraValidacaoCriacao(BaseModel):
@@ -178,10 +188,16 @@ class RegraValidacaoCriacao(BaseModel):
     campo: str = Field(..., min_length=2, max_length=64, description="Nome do campo a ser validado")
     nome_regra: str = Field(..., min_length=3, max_length=128, description="Título da regra")
     descricao: str | None = Field(None, description="Detalhamento operacional da regra")
-    padrao_regex: str | None = Field(None, max_length=512, description="Expressão regular para conferência")
-    mensagem_erro: str = Field(..., min_length=5, description="Mensagem diagnóstica exibida em caso de falha")
+    padrao_regex: str | None = Field(
+        None, max_length=512, description="Expressão regular para conferência"
+    )
+    mensagem_erro: str = Field(
+        ..., min_length=5, description="Mensagem diagnóstica exibida em caso de falha"
+    )
     formato_esperado: str = Field(..., min_length=3, max_length=256, description="Formato exigido")
-    obrigatorio: bool = Field(default=False, description="Define se a presença do campo é estritamente obrigatória")
+    obrigatorio: bool = Field(
+        default=False, description="Define se a presença do campo é estritamente obrigatória"
+    )
     ativo: bool = Field(default=True, description="Define se a regra está ativada no pipeline")
 
 

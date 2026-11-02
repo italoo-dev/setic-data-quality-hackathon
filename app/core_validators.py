@@ -21,7 +21,6 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-import brutils
 import dateparser
 from rapidfuzz import fuzz, process
 from unidecode import unidecode
@@ -40,33 +39,73 @@ CACHE_IBGE_FILE = CACHE_DIR / "ibge_municipios.json"
 
 # DDDs válidos no território brasileiro (Regulamentação Anatel)
 DDDS_VALIDOS = {
-    11, 12, 13, 14, 15, 16, 17, 18, 19,  # SP
-    21, 22, 24,                          # RJ
-    27, 28,                              # ES
-    31, 32, 33, 34, 35, 37, 38,          # MG
-    41, 42, 43, 44, 45, 46,              # PR
-    47, 48, 49,                          # SC
-    51, 53, 54, 55,                      # RS
-    61,                                  # DF/GO
-    62, 64,                              # GO
-    63,                                  # TO
-    65, 66,                              # MT
-    67,                                  # MS
-    68,                                  # AC
-    69,                                  # RO (Rondônia)
-    71, 73, 74, 75, 77,                  # BA
-    79,                                  # SE
-    81, 87,                              # PE
-    82,                                  # AL
-    83,                                  # PB
-    84,                                  # RN
-    85, 88,                              # CE
-    86, 89,                              # PI
-    91, 93, 94,                          # PA
-    92, 97,                              # AM
-    95,                                  # RR
-    96,                                  # AP
-    98, 99,                              # MA
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,  # SP
+    21,
+    22,
+    24,  # RJ
+    27,
+    28,  # ES
+    31,
+    32,
+    33,
+    34,
+    35,
+    37,
+    38,  # MG
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,  # PR
+    47,
+    48,
+    49,  # SC
+    51,
+    53,
+    54,
+    55,  # RS
+    61,  # DF/GO
+    62,
+    64,  # GO
+    63,  # TO
+    65,
+    66,  # MT
+    67,  # MS
+    68,  # AC
+    69,  # RO (Rondônia)
+    71,
+    73,
+    74,
+    75,
+    77,  # BA
+    79,  # SE
+    81,
+    87,  # PE
+    82,  # AL
+    83,  # PB
+    84,  # RN
+    85,
+    88,  # CE
+    86,
+    89,  # PI
+    91,
+    93,
+    94,  # PA
+    92,
+    97,  # AM
+    95,  # RR
+    96,  # AP
+    98,
+    99,  # MA
 }
 
 # Abreviações comuns em nomes de municípios brasileiros
@@ -176,10 +215,33 @@ class CatalogoMunicipiosIBGE:
 
             # Mapeamento oficial dos dois primeiros dígitos do código IBGE para a sigla da UF
             prefixos_uf = {
-                "11": "RO", "12": "AC", "13": "AM", "14": "RR", "15": "PA", "16": "AP", "17": "TO",
-                "21": "MA", "22": "PI", "23": "CE", "24": "RN", "25": "PB", "26": "PE", "27": "AL",
-                "28": "SE", "29": "BA", "31": "MG", "32": "ES", "33": "RJ", "35": "SP", "41": "PR",
-                "42": "SC", "43": "RS", "50": "MS", "51": "MT", "52": "GO", "53": "DF",
+                "11": "RO",
+                "12": "AC",
+                "13": "AM",
+                "14": "RR",
+                "15": "PA",
+                "16": "AP",
+                "17": "TO",
+                "21": "MA",
+                "22": "PI",
+                "23": "CE",
+                "24": "RN",
+                "25": "PB",
+                "26": "PE",
+                "27": "AL",
+                "28": "SE",
+                "29": "BA",
+                "31": "MG",
+                "32": "ES",
+                "33": "RJ",
+                "35": "SP",
+                "41": "PR",
+                "42": "SC",
+                "43": "RS",
+                "50": "MS",
+                "51": "MT",
+                "52": "GO",
+                "53": "DF",
             }
 
             url = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
@@ -213,11 +275,13 @@ class CatalogoMunicipiosIBGE:
                         sigla_uf = prefixos_uf.get(cod[:2], "")
 
                     if cod and nome and sigla_uf:
-                        lista_formatada.append({
-                            "codigo": cod,
-                            "nome": nome,
-                            "uf": sigla_uf,
-                        })
+                        lista_formatada.append(
+                            {
+                                "codigo": cod,
+                                "nome": nome,
+                                "uf": sigla_uf,
+                            }
+                        )
 
                 if len(lista_formatada) > 5000:
                     with open(CACHE_IBGE_FILE, "w", encoding="utf-8") as f:

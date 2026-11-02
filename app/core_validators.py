@@ -4,12 +4,12 @@ Implementa os validadores padronizados e inalteráveis que garantem:
 1. Normalização Permissiva: formatações arbitrárias são convertidas para canônicas.
 2. Bloqueio Estrito: defeitos estruturais e matemáticos causam bloqueio imediato (422).
 
-Utiliza bibliotecas homologadas de mercado sem reinventar a roda:
-- brutils: base de dados oficial com todos os 5.570 municípios brasileiros (brutils/data/cities_code.json).
-- phonenumbers (Google libphonenumber): validação oficial de DDD, nono dígito e padrões Anatel.
-- validate-docbr: validação algorítmica de CPF e CNPJ (módulo 11 da Receita Federal).
-- dateparser: interpretação fuzzy de datas em português e validação temporal.
-- RapidFuzz e Unidecode: correspondência fonética de alta performance sem requisições externas.
+Utiliza estritamente bibliotecas consagradas do ecossistema brasileiro sem reinventar a roda:
+- brutils: suite oficial de validação e formatação para CPF, CNPJ, CEP, PIS, E-mail,
+  conversão de UFs e catálogo nacional dos 5.570 municípios brasileiros (cities_code.json).
+- phonenumbers (Google libphonenumber): padrão oficial para telefonia móvel e fixa nacional e DDDs.
+- dateparser: interpretação temporal fuzzy de datas por extenso e em formato gregoriano.
+- RapidFuzz e Unidecode: aproximação fonética e de distância C++ em memória (100% offline).
 """
 
 from __future__ import annotations
@@ -22,19 +22,14 @@ from datetime import date, datetime
 from importlib.resources import files
 from typing import Any
 
+import brutils
 import dateparser
 import phonenumbers
 from phonenumbers import NumberParseException, PhoneNumberFormat
 from rapidfuzz import fuzz, process
 from unidecode import unidecode
-from validate_docbr import CNPJ as DocbrCNPJ
-from validate_docbr import CPF as DocbrCPF
 
 logger = logging.getLogger("setic.validators")
-
-# Instâncias de validação algorítmica homologadas
-_docbr_cpf = DocbrCPF()
-_docbr_cnpj = DocbrCNPJ()
 
 # Expansões canônicas de abreviações populares em nomes de municípios brasileiros
 ABREVIACOES_MUNICIPIOS = {
@@ -142,6 +137,17 @@ class CatalogoMunicipiosIBGE:
         t = re.sub(r"[-'/.]", " ", t)
         return re.sub(r"\s+", " ", t).strip()
 
+    def _normalizar_uf(self, uf_bruta: str | None) -> str | None:
+        """Normaliza sigla da UF, convertendo nome por extenso via brutils quando necessário."""
+        if not uf_bruta:
+            return None
+        texto = uf_bruta.strip()
+        if len(texto) == 2:
+            return texto.upper()
+        # Se for nome completo (ex: "Rondônia", "São Paulo"), converte via brutils
+        sigla = brutils.convert_name_to_uf(texto)
+        return sigla.upper() if sigla else texto.upper()
+
     def resolver(
         self,
         municipio_ou_codigo: Any,
@@ -159,7 +165,7 @@ class CatalogoMunicipiosIBGE:
             )
 
         texto_original = str(municipio_ou_codigo).strip()
-        uf_normalizada = uf.strip().upper() if uf else None
+        uf_normalizada = self._normalizar_uf(uf)
 
         # Cenário 1: Entrada é um código IBGE numérico de 7 dígitos (Resolução Reversa)
         if re.fullmatch(r"^\d{7}$", texto_original):
@@ -283,12 +289,12 @@ catalogo_ibge = CatalogoMunicipiosIBGE()
 
 
 # =====================================================================
-# Validadores Canônicos de Núcleo (Core Validators)
+# Validadores Canônicos de Núcleo (Core Validators via brutils)
 # =====================================================================
 
 
 def validar_e_normalizar_cpf(valor: Any) -> ResultadoValidacao:
-    """Valida o algoritmo de CPF (módulo 11 da Receita Federal via validate-docbr)."""
+    """Valida e normaliza CPF utilizando a biblioteca oficial brutils."""
     if valor is None:
         return ResultadoValidacao(
             valido=False,
@@ -299,7 +305,8 @@ def validar_e_normalizar_cpf(valor: Any) -> ResultadoValidacao:
             mensagem_erro="O campo CPF não foi fornecido.",
         )
 
-    limpo = re.sub(r"\D", "", str(valor))
+    texto = str(valor).strip().replace(" ", "")
+    limpo = brutils.remove_symbols_cpf(texto)
 
     if len(limpo) != 11:
         return ResultadoValidacao(
@@ -308,7 +315,7 @@ def validar_e_normalizar_cpf(valor: Any) -> ResultadoValidacao:
             regra_violada="QUANTIDADE_DIGITOS_INVALIDA",
             valor_rejeitado=valor,
             formato_esperado="Exatamente 11 dígitos numéricos",
-            mensagem_erro=f"O CPF informado contém {len(limpo)} dígitos. Esperado: 11 dígitos.",
+            mensagem_erro=f"O CPF informado possui {len(limpo)} dígitos. Esperado: exatamente 11 dígitos.",
         )
 
     if len(set(limpo)) == 1:
@@ -317,21 +324,23 @@ def validar_e_normalizar_cpf(valor: Any) -> ResultadoValidacao:
             campo="cpf",
             regra_violada="CPF_SEQUENCIA_INVALIDA",
             valor_rejeitado=valor,
-            formato_esperado="CPF com dígitos verificadores matemáticos autênticos",
-            mensagem_erro="O CPF informado é composto por dígitos repetidos conhecidos como inválidos.",
+            formato_esperado="CPF com dígitos variados e não apenas números repetidos",
+            mensagem_erro="CPF composto por números idênticos repetidos é inválido perante a Receita Federal.",
         )
 
-    if not _docbr_cpf.validate(limpo):
+    # Validação canônica de formato e dígitos verificadores via brutils
+    if not brutils.is_valid_cpf(limpo):
         return ResultadoValidacao(
             valido=False,
             campo="cpf",
             regra_violada="DIGITO_VERIFICADOR_INVALIDO",
             valor_rejeitado=valor,
-            formato_esperado="CPF com dígitos verificadores válidos (Algoritmo Módulo 11 da Receita Federal)",
+            formato_esperado="CPF com 11 dígitos e verificadores válidos segundo a Receita Federal",
             mensagem_erro="Os dígitos verificadores do CPF não conferem com o algoritmo matemático oficial.",
         )
 
-    formatado = f"{limpo[:3]}.{limpo[3:6]}.{limpo[6:9]}-{limpo[9:]}"
+    # Formatação padronizada oficial via brutils
+    formatado = brutils.format_cpf(limpo)
     return ResultadoValidacao(
         valido=True,
         valor_normalizado=limpo,
@@ -340,7 +349,7 @@ def validar_e_normalizar_cpf(valor: Any) -> ResultadoValidacao:
 
 
 def validar_e_normalizar_cnpj(valor: Any) -> ResultadoValidacao:
-    """Valida o algoritmo de CNPJ via validate-docbr e normaliza para 14 dígitos limpos."""
+    """Valida e normaliza CNPJ utilizando a biblioteca oficial brutils."""
     if valor is None:
         return ResultadoValidacao(
             valido=False,
@@ -351,7 +360,8 @@ def validar_e_normalizar_cnpj(valor: Any) -> ResultadoValidacao:
             mensagem_erro="O campo CNPJ não foi fornecido.",
         )
 
-    limpo = re.sub(r"\D", "", str(valor))
+    texto = str(valor).strip().replace(" ", "")
+    limpo = brutils.remove_symbols_cnpj(texto)
 
     if len(limpo) != 14:
         return ResultadoValidacao(
@@ -360,23 +370,132 @@ def validar_e_normalizar_cnpj(valor: Any) -> ResultadoValidacao:
             regra_violada="QUANTIDADE_DIGITOS_INVALIDA",
             valor_rejeitado=valor,
             formato_esperado="Exatamente 14 dígitos numéricos",
-            mensagem_erro=f"O CNPJ informado contém {len(limpo)} dígitos. Esperado: 14 dígitos.",
+            mensagem_erro=f"O CNPJ informado possui {len(limpo)} dígitos. Esperado: exatamente 14 dígitos.",
         )
 
-    if not _docbr_cnpj.validate(limpo):
+    if len(set(limpo)) == 1:
+        return ResultadoValidacao(
+            valido=False,
+            campo="cnpj",
+            regra_violada="CNPJ_SEQUENCIA_INVALIDA",
+            valor_rejeitado=valor,
+            formato_esperado="CNPJ com dígitos variados e não apenas números repetidos",
+            mensagem_erro="CNPJ composto por números idênticos repetidos é inválido perante a Receita Federal.",
+        )
+
+    # Validação canônica via brutils
+    if not brutils.is_valid_cnpj(limpo):
         return ResultadoValidacao(
             valido=False,
             campo="cnpj",
             regra_violada="DIGITO_VERIFICADOR_INVALIDO",
             valor_rejeitado=valor,
-            formato_esperado="CNPJ com dígitos verificadores válidos (Algoritmo Oficial)",
+            formato_esperado="CNPJ com 14 dígitos e verificadores válidos segundo a Receita Federal",
             mensagem_erro="Os dígitos verificadores do CNPJ são matematicamente inconsistentes.",
+        )
+
+    formatado = brutils.format_cnpj(limpo)
+    return ResultadoValidacao(
+        valido=True,
+        valor_normalizado=limpo,
+        mensagem_transformacao=f"CNPJ normalizado para '{limpo}' (Formatado: {formatado}).",
+    )
+
+
+def validar_e_normalizar_cep(valor: Any) -> ResultadoValidacao:
+    """Valida e normaliza CEP utilizando a biblioteca oficial brutils."""
+    if valor is None:
+        return ResultadoValidacao(
+            valido=False,
+            campo="cep",
+            regra_violada="CAMPO_OBRIGATORIO_AUSENTE",
+            valor_rejeitado=None,
+            formato_esperado="CEP com 8 dígitos numéricos (ex: 76801-000)",
+            mensagem_erro="O campo CEP é obrigatório.",
+        )
+
+    texto = str(valor).strip().replace(" ", "")
+    limpo = brutils.remove_symbols_cep(texto)
+
+    # Validação canônica de formato via brutils
+    if not brutils.is_valid_cep(limpo):
+        return ResultadoValidacao(
+            valido=False,
+            campo="cep",
+            regra_violada="FORMATO_CEP_INVALIDO",
+            valor_rejeitado=valor,
+            formato_esperado="CEP válido contendo exatamente 8 dígitos numéricos",
+            mensagem_erro=f"O CEP '{texto}' é inválido perante o padrão postal brasileiro.",
+        )
+
+    formatado = brutils.format_cep(limpo)
+    return ResultadoValidacao(
+        valido=True,
+        valor_normalizado=limpo,
+        mensagem_transformacao=f"CEP normalizado para '{limpo}' (Formatado: {formatado}).",
+    )
+
+
+def validar_e_normalizar_email(valor: Any) -> ResultadoValidacao:
+    """Valida endereço de e-mail utilizando brutils."""
+    if not valor:
+        return ResultadoValidacao(
+            valido=False,
+            campo="email",
+            regra_violada="CAMPO_OBRIGATORIO_AUSENTE",
+            valor_rejeitado=None,
+            formato_esperado="Endereço de e-mail válido (ex: usuario@dominio.com)",
+            mensagem_erro="O campo e-mail é obrigatório.",
+        )
+
+    texto = str(valor).strip()
+    if not brutils.is_valid_email(texto):
+        return ResultadoValidacao(
+            valido=False,
+            campo="email",
+            regra_violada="FORMATO_EMAIL_INVALIDO",
+            valor_rejeitado=valor,
+            formato_esperado="Endereço de e-mail em formato válido segundo RFC",
+            mensagem_erro=f"O endereço de e-mail '{texto}' é inválido.",
         )
 
     return ResultadoValidacao(
         valido=True,
+        valor_normalizado=texto.lower(),
+        mensagem_transformacao=f"E-mail normalizado para '{texto.lower()}'.",
+    )
+
+
+def validar_e_normalizar_pis(valor: Any) -> ResultadoValidacao:
+    """Valida e normaliza PIS/PASEP utilizando brutils."""
+    if not valor:
+        return ResultadoValidacao(
+            valido=False,
+            campo="pis",
+            regra_violada="CAMPO_OBRIGATORIO_AUSENTE",
+            valor_rejeitado=None,
+            formato_esperado="Número de PIS com 11 dígitos numéricos",
+            mensagem_erro="O campo PIS é obrigatório.",
+        )
+
+    texto = str(valor).strip().replace(" ", "")
+    limpo = brutils.remove_symbols_pis(texto)
+
+    if not brutils.is_valid_pis(limpo):
+        return ResultadoValidacao(
+            valido=False,
+            campo="pis",
+            regra_violada="PIS_INVALIDO",
+            valor_rejeitado=valor,
+            formato_esperado="PIS/PASEP autêntico de 11 dígitos numéricos",
+            mensagem_erro="O número de PIS informado é inválido.",
+        )
+
+    formatado = brutils.format_pis(limpo)
+    return ResultadoValidacao(
+        valido=True,
         valor_normalizado=limpo,
-        mensagem_transformacao=f"CNPJ normalizado para {limpo}.",
+        mensagem_transformacao=f"PIS normalizado para '{limpo}' (Formatado: {formatado}).",
     )
 
 
@@ -519,7 +638,6 @@ def validar_e_normalizar_telefone(valor: Any) -> ResultadoValidacao:
             mensagem_erro=f"O telefone '{texto}' não é um número brasileiro válido de acordo com a base regulatória da Anatel.",
         )
 
-    # Normalização Permissiva: formato nacional e dígitos canônicos
     formato_nacional = phonenumbers.format_number(numero_analisado, PhoneNumberFormat.NATIONAL)
     digitos_limpos = f"{numero_analisado.national_number}"
 
@@ -527,37 +645,6 @@ def validar_e_normalizar_telefone(valor: Any) -> ResultadoValidacao:
         valido=True,
         valor_normalizado=digitos_limpos,
         mensagem_transformacao=f"Telefone normalizado para '{digitos_limpos}' (Formatado: {formato_nacional}).",
-    )
-
-
-def validar_e_normalizar_cep(valor: Any) -> ResultadoValidacao:
-    """Valida formato de 8 dígitos de Código de Endereçamento Postal (CEP)."""
-    if valor is None:
-        return ResultadoValidacao(
-            valido=False,
-            campo="cep",
-            regra_violada="CAMPO_OBRIGATORIO_AUSENTE",
-            valor_rejeitado=None,
-            formato_esperado="CEP com 8 dígitos numéricos",
-            mensagem_erro="O campo CEP é obrigatório.",
-        )
-
-    limpo = re.sub(r"\D", "", str(valor))
-    if len(limpo) != 8:
-        return ResultadoValidacao(
-            valido=False,
-            campo="cep",
-            regra_violada="FORMATO_CEP_INVALIDO",
-            valor_rejeitado=valor,
-            formato_esperado="8 dígitos numéricos (ex: 76801000 ou 76801-000)",
-            mensagem_erro=f"O CEP informado contém {len(limpo)} dígitos. Esperado: exatamente 8 dígitos.",
-        )
-
-    formatado = f"{limpo[:5]}-{limpo[5:]}"
-    return ResultadoValidacao(
-        valido=True,
-        valor_normalizado=limpo,
-        mensagem_transformacao=f"CEP normalizado para '{limpo}' (Formatado: {formatado}).",
     )
 
 

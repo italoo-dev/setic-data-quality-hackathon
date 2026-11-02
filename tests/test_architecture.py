@@ -5,8 +5,15 @@ from __future__ import annotations
 import pytest
 
 from app.database import SessionLocal, init_db
+from app.domain.interfaces import (
+    AuditRepositoryProtocol,
+    BaseValidatorProtocol,
+    PipelineStepProtocol,
+    RuleRepositoryProtocol,
+)
 from app.domain.models import ErroDiagnosticoItem, ExecutionContext
 from app.engine.core_tier import CoreTierStep
+from app.engine.dynamic_tier import DynamicTierStep
 from app.engine.pipeline import ValidationPipeline
 from app.repositories.audit import AuditRepository
 from app.repositories.rules import RuleRepository
@@ -164,3 +171,27 @@ def test_rule_repository_export_import(db):
     finally:
         db.query(RegraValidacao).filter(RegraValidacao.campo == campo_teste).delete()
         db.commit()
+
+
+def test_protocols_explicit_inheritance_contract(db):
+    """Garante conformidade nominal e estrutural com herança explícita de Protocolos."""
+    # 1. BaseValidator herda e cumpre BaseValidatorProtocol
+    assert issubclass(BaseValidator, BaseValidatorProtocol)
+
+    # 2. RuleRepository herda e cumpre RuleRepositoryProtocol
+    rule_repo = RuleRepository(db)
+    assert issubclass(RuleRepository, RuleRepositoryProtocol)
+    assert isinstance(rule_repo, RuleRepositoryProtocol)
+
+    # 3. AuditRepository herda e cumpre AuditRepositoryProtocol
+    audit_repo = AuditRepository(db)
+    assert issubclass(AuditRepository, AuditRepositoryProtocol)
+    assert isinstance(audit_repo, AuditRepositoryProtocol)
+
+    # 4. CoreTierStep e DynamicTierStep herdam e cumprem PipelineStepProtocol
+    core_step = CoreTierStep()
+    dynamic_step = DynamicTierStep(rule_repo)
+    assert issubclass(CoreTierStep, PipelineStepProtocol)
+    assert issubclass(DynamicTierStep, PipelineStepProtocol)
+    assert isinstance(core_step, PipelineStepProtocol)
+    assert isinstance(dynamic_step, PipelineStepProtocol)

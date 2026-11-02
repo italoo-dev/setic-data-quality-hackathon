@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
@@ -37,7 +35,7 @@ router = APIRouter(prefix="/api/v1", tags=["Qualidade e Normalização"])
 def validar_e_normalizar(
     requisicao: RequisicaoValidacao,
     pipeline: ValidationPipeline = Depends(get_validation_pipeline),
-) -> Any:
+) -> RespostaNormalizada | JSONResponse:
     """Interpreta e processa os dados brutos recebidos.
 
     - Se a carga for válida: aplica normalizações permissivas e retorna **200 OK**.

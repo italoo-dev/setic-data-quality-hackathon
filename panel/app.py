@@ -14,7 +14,6 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 import plotly.express as px
@@ -97,7 +96,7 @@ def obter_sessao_db() -> Session:
     return SessionLocal()
 
 
-def consultar_api_saude() -> dict[str, Any] | None:
+def consultar_api_saude() -> dict[str, object] | None:
     """Verifica a conectividade com a API FastAPI."""
     try:
         r = requests.get(f"{API_URL}/api/v1/saude", timeout=1.5)
@@ -108,20 +107,29 @@ def consultar_api_saude() -> dict[str, Any] | None:
     return None
 
 
-def executar_validacao(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+def executar_validacao(payload: dict[str, object]) -> tuple[int, dict[str, object]]:
     """Executa a validação via API REST ou fallback direto para o motor embutido."""
     # 1. Tentar via API HTTP FastAPI
     try:
-        r = requests.post(f"{API_URL}/api/v1/validar", json=payload, timeout=5.0)
-        return r.status_code, r.json()
+        r = requests.post(
+            f"{API_URL}/api/v1/validar",
+            data=json.dumps(payload),
+            headers={"Content-Type": "application/json"},
+            timeout=5.0,
+        )
+        res_json = r.json()
+        return r.status_code, res_json if isinstance(res_json, dict) else {}
     except Exception:
         # 2. Fallback direto para o motor e banco local
         db = obter_sessao_db()
         try:
             motor = MotorValidacao(db)
+            raw_dados = payload.get("dados")
+            dados_dict = raw_dados if isinstance(raw_dados, dict) else {}
+            sistema_origem = str(payload.get("sistema_origem", "STREAMLIT_FALLBACK"))
             res = motor.executar(
-                dados_entrada=payload.get("dados", {}),
-                sistema_origem=payload.get("sistema_origem", "STREAMLIT_FALLBACK"),
+                dados_entrada=dados_dict,
+                sistema_origem=sistema_origem,
             )
             return res.status_http, res.to_dict()
         finally:
@@ -589,7 +597,7 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
 
                 # Relação de transformações aplicadas
                 transformacoes = resultado.get("transformacoes", [])
-                if transformacoes:
+                if isinstance(transformacoes, list) and transformacoes:
                     st.markdown("**🔄 Normalizações Permissivas Aplicadas:**")
                     for t in transformacoes:
                         st.info(f"• {t}")

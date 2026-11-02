@@ -20,5 +20,4 @@ def obter_metricas_cagd(
     audit_repo: AuditRepository = Depends(get_audit_repository),
 ) -> MetricasOperacionaisCAGD:
     """Calcula estatísticas agregadas de qualidade, rejeição e latência para a gestão."""
-    dados_metricas = audit_repo.obter_metricas_cagd()
-    return MetricasOperacionaisCAGD(**dados_metricas)
+    return audit_repo.obter_metricas_cagd()

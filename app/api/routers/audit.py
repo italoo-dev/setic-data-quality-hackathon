@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_audit_repository
@@ -21,7 +19,7 @@ def consultar_auditoria(
     sucesso: bool | None = None,
     limite: int = Query(default=50, ge=1, le=500),
     audit_repo: AuditRepository = Depends(get_audit_repository),
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Consulta os registros mais recentes da trilha de auditoria operacional."""
     registros = audit_repo.listar_registros(
         sistema_origem=sistema_origem,

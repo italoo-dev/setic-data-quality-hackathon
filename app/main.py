@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Any
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,7 +79,7 @@ app.add_middleware(
     summary="Verificação de Saúde Operacional",
     tags=["Operação e Diagnóstico"],
 )
-def checar_saude(db: Session = Depends(get_db)) -> dict[str, Any]:
+def checar_saude(db: Session = Depends(get_db)) -> dict[str, object]:
     """Retorna o estado operacional dos serviços, banco de dados e catálogo IBGE."""
     total_regras = 0
     try:

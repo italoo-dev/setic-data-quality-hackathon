@@ -21,17 +21,17 @@ import requests
 import streamlit as st
 from sqlalchemy.orm import Session
 
-# Previne que o arquivo 'panel/app.py' cause sombreamento do pacote 'app' no sys.path do Streamlit
+# Previne que o diretório 'frontend' cause sombreamento no sys.path do Streamlit
 _ROOT_DIR = str(Path(__file__).resolve().parent.parent)
-_PANEL_DIR = str(Path(__file__).resolve().parent)
-_LOGO_PATH = Path(_PANEL_DIR) / "assets" / "logo.svg"
-while _PANEL_DIR in sys.path:
-    sys.path.remove(_PANEL_DIR)
+_FRONTEND_DIR = str(Path(__file__).resolve().parent)
+_LOGO_PATH = Path(_FRONTEND_DIR) / "assets" / "logo.svg"
+while _FRONTEND_DIR in sys.path:
+    sys.path.remove(_FRONTEND_DIR)
 if _ROOT_DIR not in sys.path:
     sys.path.insert(0, _ROOT_DIR)
 
-from app.database import RegistroAuditoria, RegraValidacao, SessionLocal, init_db  # noqa: E402
-from app.engine import MotorValidacao  # noqa: E402
+from backend.database import RegistroAuditoria, RegraValidacao, SessionLocal, init_db  # noqa: E402
+from backend.engine import MotorValidacao  # noqa: E402
 
 # Configuração da Página Streamlit
 st.set_page_config(
@@ -687,7 +687,7 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                             type="primary",
                             width="stretch",
                         ):
-                            from app.repositories.rules import RuleRepository
+                            from backend.repositories.rules import RuleRepository
 
                             rule_repo = RuleRepository(db)
                             resultado_imp = rule_repo.importar_regras(

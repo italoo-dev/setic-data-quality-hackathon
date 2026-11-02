@@ -29,7 +29,7 @@ from sqlalchemy.pool import StaticPool
 # Resolução da URL de Conexão com suporte a fallback de contingência
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg://postgres@localhost:5433/setic_qualidade",
+    "postgresql+psycopg://postgres:postgres@localhost:5432/setic_qualidade",
 )
 
 # Configuração do Engine SQLAlchemy

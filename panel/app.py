@@ -249,7 +249,7 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
                     labels={"sistema_origem": "Sistema Cliente", "quantidade": "Requisições"},
                 )
                 fig_sis.update_layout(height=350, margin={"l": 20, "r": 20, "t": 30, "b": 20})
-                st.plotly_chart(fig_sis, use_container_width=True)
+                st.plotly_chart(fig_sis, width="stretch")
             else:
                 st.info("Nenhuma transação registrada até o momento.")
 
@@ -284,7 +284,7 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
                     color_continuous_scale="Reds",
                 )
                 fig_campos.update_layout(height=350, margin={"l": 20, "r": 20, "t": 30, "b": 20})
-                st.plotly_chart(fig_campos, use_container_width=True)
+                st.plotly_chart(fig_campos, width="stretch")
             else:
                 st.success("Nenhuma falha de validação registrada.")
 
@@ -303,7 +303,7 @@ if menu_selecionado == "📊 Painel de Métricas (CAGD)":
             df_regras = pd.DataFrame(
                 list(contagem_regras.items()), columns=["Código da Regra", "Total de Bloqueios"]
             ).sort_values(by="Total de Bloqueios", ascending=False)
-            st.dataframe(df_regras, use_container_width=True, hide_index=True)
+            st.dataframe(df_regras, width="stretch", hide_index=True)
         else:
             st.caption("Nenhum bloqueio registrado.")
 
@@ -358,7 +358,7 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
             df_tabela = pd.DataFrame(tabela_dados)
             st.dataframe(
                 df_tabela.drop(columns=["Imutável"]),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -380,7 +380,7 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                     st.write("")
                     st.write("")
                     btn_label = "Desativar" if regra_escolhida.ativo else "Ativar"
-                    if st.button(f"🔄 {btn_label}", use_container_width=True):
+                    if st.button(f"🔄 {btn_label}", width="stretch"):
                         regra_escolhida.ativo = not regra_escolhida.ativo
                         db.commit()
                         st.success(f"Regra {regra_escolhida.id} atualizada com sucesso!")
@@ -388,7 +388,7 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                 with col_act2:
                     st.write("")
                     st.write("")
-                    if st.button("🗑️ Excluir", use_container_width=True, type="secondary"):
+                    if st.button("🗑️ Excluir", width="stretch", type="secondary"):
                         db.delete(regra_escolhida)
                         db.commit()
                         st.warning(f"Regra {regra_escolhida.id} excluída!")
@@ -546,7 +546,7 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
         height=220,
     )
 
-    if st.button("🚀 Executar Validação e Normalização", type="primary", use_container_width=True):
+    if st.button("🚀 Executar Validação e Normalização", type="primary", width="stretch"):
         try:
             dados_dict = json.loads(payload_texto)
         except json.JSONDecodeError as err:
@@ -608,7 +608,7 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
                                 "mensagem",
                             ]
                         ],
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
 
@@ -667,7 +667,7 @@ elif menu_selecionado == "📜 Trilha de Auditoria e Telemetria":
                 )
 
             df_auditoria = pd.DataFrame(lista_tabela)
-            st.dataframe(df_auditoria, use_container_width=True, hide_index=True)
+            st.dataframe(df_auditoria, width="stretch", hide_index=True)
 
             st.markdown("---")
             st.subheader("Inspecionar Registro Detalhado")

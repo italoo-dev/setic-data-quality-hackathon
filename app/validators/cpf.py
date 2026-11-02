@@ -6,15 +6,13 @@ verificadores oficiais pelo algoritmo módulo 11 da Receita Federal.
 
 from __future__ import annotations
 
-from typing import Any
-
 import brutils
 
 from app.domain.models import ErroDiagnosticoItem, ExecutionContext, ResultadoValidacao
 from app.validators.base import BaseValidator
 
 
-def validar_e_normalizar_cpf(valor: Any) -> ResultadoValidacao:
+def validar_e_normalizar_cpf(valor: object) -> ResultadoValidacao:
     """Valida e normaliza CPF utilizando a biblioteca oficial brutils."""
     if valor is None:
         return ResultadoValidacao(
@@ -73,9 +71,9 @@ class CPFValidator(BaseValidator):
     def validate_and_normalize(
         self,
         field_name: str,
-        value: Any,
+        value: object,
         context: ExecutionContext,
-    ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+    ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
         res = validar_e_normalizar_cpf(value)
         if not res.valido:
             erro = self.build_diagnostic_error(

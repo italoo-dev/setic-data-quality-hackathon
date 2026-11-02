@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import brutils
 import phonenumbers
 from phonenumbers import NumberParseException, PhoneNumberFormat
@@ -16,7 +14,7 @@ from app.domain.models import ErroDiagnosticoItem, ExecutionContext, ResultadoVa
 from app.validators.base import BaseValidator
 
 
-def validar_e_normalizar_telefone(valor: Any) -> ResultadoValidacao:
+def validar_e_normalizar_telefone(valor: object) -> ResultadoValidacao:
     """Valida telefone utilizando Google libphonenumber (phonenumbers) para padrões nacionais e DDD."""
     if not valor:
         return ResultadoValidacao(
@@ -62,7 +60,7 @@ def validar_e_normalizar_telefone(valor: Any) -> ResultadoValidacao:
     )
 
 
-def validar_e_normalizar_email(valor: Any) -> ResultadoValidacao:
+def validar_e_normalizar_email(valor: object) -> ResultadoValidacao:
     """Valida endereço de e-mail utilizando brutils."""
     if not valor:
         return ResultadoValidacao(
@@ -98,9 +96,9 @@ class PhoneValidator(BaseValidator):
     def validate_and_normalize(
         self,
         field_name: str,
-        value: Any,
+        value: object,
         context: ExecutionContext,
-    ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+    ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
         res = validar_e_normalizar_telefone(value)
         if not res.valido:
             erro = self.build_diagnostic_error(
@@ -122,9 +120,9 @@ class EmailValidator(BaseValidator):
     def validate_and_normalize(
         self,
         field_name: str,
-        value: Any,
+        value: object,
         context: ExecutionContext,
-    ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+    ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
         res = validar_e_normalizar_email(value)
         if not res.valido:
             erro = self.build_diagnostic_error(

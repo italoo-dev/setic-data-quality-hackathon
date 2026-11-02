@@ -7,7 +7,6 @@ de erros diagnósticos e normalização padronizada segundo o contrato de domín
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 from app.domain.models import ErroDiagnosticoItem, ExecutionContext
 
@@ -19,13 +18,13 @@ class BaseValidator(ABC):
     def validate_and_normalize(
         self,
         field_name: str,
-        value: Any,
+        value: object,
         context: ExecutionContext,
-    ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+    ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
         """Executa a validação e higienização do valor fornecido.
 
         Retorna:
-            tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+            tuple[object, list[ErroDiagnosticoItem], list[str]]:
                 (valor_normalizado, lista_de_erros, lista_de_transformacoes)
         """
         ...
@@ -34,7 +33,7 @@ class BaseValidator(ABC):
     def build_diagnostic_error(
         campo: str,
         regra_violada: str,
-        valor_rejeitado: Any,
+        valor_rejeitado: object,
         formato_esperado: str,
         mensagem: str,
     ) -> ErroDiagnosticoItem:

@@ -5,15 +5,13 @@ Valida a integridade do cadastro no PIS/PASEP através da biblioteca brutils.
 
 from __future__ import annotations
 
-from typing import Any
-
 import brutils
 
 from app.domain.models import ErroDiagnosticoItem, ExecutionContext, ResultadoValidacao
 from app.validators.base import BaseValidator
 
 
-def validar_e_normalizar_pis(valor: Any) -> ResultadoValidacao:
+def validar_e_normalizar_pis(valor: object) -> ResultadoValidacao:
     """Valida e normaliza PIS/PASEP utilizando brutils."""
     if not valor:
         return ResultadoValidacao(
@@ -52,9 +50,9 @@ class PISValidator(BaseValidator):
     def validate_and_normalize(
         self,
         field_name: str,
-        value: Any,
+        value: object,
         context: ExecutionContext,
-    ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+    ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
         res = validar_e_normalizar_pis(value)
         if not res.valido:
             erro = self.build_diagnostic_error(

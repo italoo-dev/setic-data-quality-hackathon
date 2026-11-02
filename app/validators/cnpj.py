@@ -6,15 +6,13 @@ verificadores e higienização alfanumérica/numérica do cadastro nacional.
 
 from __future__ import annotations
 
-from typing import Any
-
 import brutils
 
 from app.domain.models import ErroDiagnosticoItem, ExecutionContext, ResultadoValidacao
 from app.validators.base import BaseValidator
 
 
-def validar_e_normalizar_cnpj(valor: Any) -> ResultadoValidacao:
+def validar_e_normalizar_cnpj(valor: object) -> ResultadoValidacao:
     """Valida e normaliza CNPJ utilizando a biblioteca oficial brutils."""
     if valor is None:
         return ResultadoValidacao(
@@ -73,9 +71,9 @@ class CNPJValidator(BaseValidator):
     def validate_and_normalize(
         self,
         field_name: str,
-        value: Any,
+        value: object,
         context: ExecutionContext,
-    ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+    ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
         res = validar_e_normalizar_cnpj(value)
         if not res.valido:
             erro = self.build_diagnostic_error(

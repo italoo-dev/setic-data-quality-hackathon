@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Any
 
 import dateparser
 
@@ -18,7 +17,7 @@ from app.validators.base import BaseValidator
 
 
 def validar_e_normalizar_data(
-    valor: Any,
+    valor: object,
     campo: str = "data_nascimento",
     permitir_futuro: bool = False,
 ) -> ResultadoValidacao:
@@ -128,9 +127,9 @@ class DateTimeValidator(BaseValidator):
     def validate_and_normalize(
         self,
         field_name: str,
-        value: Any,
+        value: object,
         context: ExecutionContext,
-    ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+    ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
         res = validar_e_normalizar_data(
             value, campo=field_name, permitir_futuro=self.permitir_futuro
         )

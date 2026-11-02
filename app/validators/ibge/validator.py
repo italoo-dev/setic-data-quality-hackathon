@@ -7,7 +7,6 @@ fonética/fuzzy em memória utilizando RapidFuzz e Unidecode (100% offline).
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from rapidfuzz import fuzz, process
 
@@ -17,7 +16,7 @@ from app.validators.ibge.catalog import catalogo_ibge
 
 
 def validar_e_normalizar_municipio(
-    municipio_ou_codigo: Any,
+    municipio_ou_codigo: object,
     uf: str | None = None,
 ) -> ResultadoValidacao:
     """Resolve bidirecionalmente municípios brasileiros (Nome <-> Código IBGE de 7 dígitos)."""
@@ -155,10 +154,11 @@ class IBGEMunicipioValidator(BaseValidator):
     def validate_and_normalize(
         self,
         field_name: str,
-        value: Any,
+        value: object,
         context: ExecutionContext,
-    ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
-        uf = context.dados_brutos.get("uf")
+    ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
+        uf_val = context.dados_brutos.get("uf")
+        uf = str(uf_val) if uf_val is not None else None
         res = validar_e_normalizar_municipio(value, uf=uf)
         if not res.valido:
             erro = self.build_diagnostic_error(
@@ -172,9 +172,9 @@ class IBGEMunicipioValidator(BaseValidator):
 
         # Se for dicionário com município, código_ibge e uf, atualiza context diretamente
         if isinstance(res.valor_normalizado, dict):
-            context.dados_normalizados["municipio"] = res.valor_normalizado["municipio"]
-            context.dados_normalizados["codigo_ibge"] = res.valor_normalizado["codigo_ibge"]
-            context.dados_normalizados["uf"] = res.valor_normalizado["uf"]
+            context.dados_normalizados["municipio"] = str(res.valor_normalizado["municipio"])
+            context.dados_normalizados["codigo_ibge"] = str(res.valor_normalizado["codigo_ibge"])
+            context.dados_normalizados["uf"] = str(res.valor_normalizado["uf"])
 
         transformacoes = [res.mensagem_transformacao] if res.mensagem_transformacao else []
         return res.valor_normalizado, [], transformacoes

@@ -75,6 +75,7 @@ def test_cnpj_valido_normalizacao():
     cnpj_valido_com_mascara = brutils.format_cnpj(cnpj_limpo)
     res = validar_e_normalizar_cnpj(cnpj_valido_com_mascara)
     assert res.valido is True
+    assert isinstance(res.valor_normalizado, str)
     assert len(res.valor_normalizado) == 14
 
 
@@ -114,6 +115,7 @@ def test_municipio_fuzzy_rondonia():
     """Verifica se 'p. velho' é aproximado para 'Porto Velho' com código IBGE 1100205."""
     res = validar_e_normalizar_municipio("p. velho", "RO")
     assert res.valido is True
+    assert isinstance(res.valor_normalizado, dict)
     assert res.valor_normalizado["municipio"] == "Porto Velho"
     assert res.valor_normalizado["codigo_ibge"] == "1100205"
     assert res.valor_normalizado["uf"] == "RO"
@@ -123,6 +125,7 @@ def test_municipio_nacional_fora_ro():
     """Verifica a resolução de cidades de outros estados (São Paulo/SP)."""
     res = validar_e_normalizar_municipio("sao paulo", "SP")
     assert res.valido is True
+    assert isinstance(res.valor_normalizado, dict)
     assert res.valor_normalizado["municipio"] in ("São Paulo", "Sao Paulo")
     assert res.valor_normalizado["codigo_ibge"] == "3550308"
 
@@ -131,6 +134,7 @@ def test_municipio_bidirecional_codigo_ibge():
     """Verifica a resolução reversa do código IBGE de 7 dígitos para o nome oficial."""
     res = validar_e_normalizar_municipio("1100122")
     assert res.valido is True
+    assert isinstance(res.valor_normalizado, dict)
     assert res.valor_normalizado["municipio"] in ("Ji-Paraná", "Ji-Parana")
     assert res.valor_normalizado["uf"] == "RO"
 
@@ -146,6 +150,7 @@ def test_municipio_com_uf_nome_extenso():
     """Verifica se nome do estado por extenso (ex: 'Rondônia') é convertido para a sigla oficial via brutils."""
     res = validar_e_normalizar_municipio("Porto Velho", "Rondônia")
     assert res.valido is True
+    assert isinstance(res.valor_normalizado, dict)
     assert res.valor_normalizado["municipio"] == "Porto Velho"
     assert res.valor_normalizado["uf"] == "RO"
     assert res.valor_normalizado["codigo_ibge"] == "1100205"
@@ -190,6 +195,7 @@ def test_pis_valido_normalizacao():
     pis_gerado = brutils.generate_pis()
     res = validar_e_normalizar_pis(pis_gerado)
     assert res.valido is True
+    assert isinstance(res.valor_normalizado, str)
     assert len(res.valor_normalizado) == 11
 
 

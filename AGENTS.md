@@ -81,6 +81,10 @@ Each commit must represent a single architectural layer or independent logical u
    - Every invocation of `/api/v1/validar` must generate a `RegistroAuditoria` log recording protocol, input payload, status (success/failure), latency in milliseconds, and error diagnostics.
 4. **Localization & Language**:
    - All API documentation (OpenAPI / Swagger), error diagnostic messages, Pydantic schemas, user interfaces, and domain models must be written in **formal Brazilian Portuguese (pt-BR)**.
+5. **Strict Prohibition of Retrocompatibility Shims**:
+   - Never create or retain backward-compatibility adapters, property wrappers, aliases, or deprecated shims when refactoring or renaming symbols (classes, functions, methods, parameters, or attributes).
+   - When renaming or modifying contracts, obsolete implementations must be deleted completely, and all call sites/tests must be updated directly.
+   - Zero tolerance for legacy cruft; the codebase must remain lean, canonical, and strictly typed.
 
 ---
 

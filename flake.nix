@@ -23,12 +23,12 @@
         projectName = pyprojectData.project.name;
         projectVersion = pyprojectData.project.version;
 
-        # Integração com pyproject-nix para validação de metadados
+        # Validação de metadados via pyproject-nix
         pyprojectParsed = pyproject-nix.lib.project.loadPyproject {
           projectRoot = ./.;
         };
 
-        # Python 3.12 com ferramentas nativas de compilação
+        # Python 3.12 com ferramentas nativas
         python = pkgs.python312;
       in
       {
@@ -55,23 +55,20 @@
           '';
         };
 
-        # Shell de desenvolvimento reprodutível
+        # Shell de desenvolvimento reprodutível e simplificado
         devShells.default = pkgs.mkShell {
           name = "${projectName}-devshell";
 
           buildInputs = [
-            # Runtime Python e gerenciador de pacotes dinâmico
+            # Runtime Python e empacotamento declarativo
             python
             pkgs.uv
-
-            # Servidor e utilitários PostgreSQL 16
-            pkgs.postgresql_16
 
             # LSPs e Linters estáticos
             pkgs.ruff
             pkgs.pyright
 
-            # Compilação nativa para extensões C++ (RapidFuzz, Psycopg, etc.)
+            # Compilação nativa para extensões C++
             pkgs.gcc
             pkgs.pkg-config
             pkgs.zlib
@@ -79,56 +76,23 @@
             # Ferramentas auxiliares
             pkgs.git
             pkgs.curl
-            pkgs.which
           ];
 
           shellHook = ''
             echo "====================================================================="
             echo " SETIC/CAGD - Plataforma de Qualidade e Normalização de Dados"
-            echo " Ambiente Nix Carregado: ${system} | Python 3.12"
+            echo " Ambiente Nix Simplificado: ${system} | Python 3.12"
+            echo " Banco de Dados: Container Docker / Podman (PostgreSQL 16)"
             echo " Single Source of Truth: pyproject.toml (v${projectVersion})"
             echo "====================================================================="
 
-            # 1. Configuração do Diretório Isolado do PostgreSQL Local
+            # 1. Configurações de Ambiente
             export REPO_ROOT="$(pwd)"
-            export PGDATA="$REPO_ROOT/.postgres/data"
-            export PGSOCKET="$REPO_ROOT/.postgres/sockets"
-            export PGLOGS="$REPO_ROOT/.postgres/logs"
-            export PGPORT="5433"
-            export PGHOST="$PGSOCKET"
-            export DATABASE_URL="postgresql+psycopg://postgres@localhost:$PGPORT/setic_qualidade"
+            export DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/setic_qualidade"
             export PYTHONPATH="$REPO_ROOT"
+            mkdir -p "$REPO_ROOT/.cache"
 
-            mkdir -p "$PGDATA" "$PGSOCKET" "$PGLOGS" "$REPO_ROOT/.cache"
-
-            # 2. Inicialização do Banco PostgreSQL se inexistente
-            if [ ! -f "$PGDATA/PG_VERSION" ]; then
-              echo "[DB] Inicializando cluster PostgreSQL local em $PGDATA..."
-              initdb -U postgres -D "$PGDATA" --auth=trust --no-locale --encoding=UTF8 > /dev/null 2>&1
-              echo "unix_socket_directories = '$PGSOCKET'" >> "$PGDATA/postgresql.conf"
-              echo "port = $PGPORT" >> "$PGDATA/postgresql.conf"
-              echo "listen_addresses = '127.0.0.1'" >> "$PGDATA/postgresql.conf"
-            fi
-
-            # 3. Inicialização do Daemon PostgreSQL com verificação de prontidão
-            if ! pg_isready -h "$PGSOCKET" -p "$PGPORT" > /dev/null 2>&1; then
-              echo "[DB] Iniciando serviço PostgreSQL (Porta $PGPORT)..."
-              pg_ctl -D "$PGDATA" -l "$PGLOGS/postgresql.log" -o "-k $PGSOCKET -p $PGPORT" start > /dev/null 2>&1
-              for i in {1..10}; do
-                if pg_isready -h "$PGSOCKET" -p "$PGPORT" > /dev/null 2>&1; then
-                  break
-                fi
-                sleep 0.5
-              done
-            fi
-
-            # 4. Criação da Base de Dados caso não exista
-            if ! psql -h "$PGSOCKET" -p "$PGPORT" -U postgres -lqt | cut -d \| -f 1 | grep -qw setic_qualidade; then
-              echo "[DB] Criando banco de dados 'setic_qualidade'..."
-              createdb -h "$PGSOCKET" -p "$PGPORT" -U postgres setic_qualidade
-            fi
-
-            # 5. Sincronização do Ambiente Virtual a partir de pyproject.toml via uv
+            # 2. Sincronização do Ambiente Virtual a partir de pyproject.toml via uv
             if [ ! -d ".venv" ]; then
               echo "[ENV] Criando ambiente virtual Python (.venv)..."
               uv venv .venv --quiet
@@ -138,15 +102,53 @@
             echo "[ENV] Sincronizando dependências declaradas no pyproject.toml..."
             uv pip install -e ".[dev]" --quiet
 
-            # 6. Aliases de Operação Rápida
+            # 3. Gerenciamento do Banco de Dados via Container (Docker / Podman)
+            iniciar-db() {
+              if command -v podman > /dev/null 2>&1; then
+                echo "[DB] Iniciando container PostgreSQL 16 via Podman..."
+                podman run -d --name setic_postgres --replace \
+                  -e POSTGRES_DB=setic_qualidade \
+                  -e POSTGRES_USER=postgres \
+                  -e POSTGRES_PASSWORD=postgres \
+                  -p 5432:5432 \
+                  -v setic_postgres_data:/var/lib/postgresql/data \
+                  docker.io/library/postgres:16-alpine > /dev/null 2>&1
+                echo "[DB] Container PostgreSQL pronto na porta 5432."
+              elif command -v docker > /dev/null 2>&1; then
+                echo "[DB] Iniciando container PostgreSQL 16 via Docker..."
+                docker run -d --name setic_postgres \
+                  -e POSTGRES_DB=setic_qualidade \
+                  -e POSTGRES_USER=postgres \
+                  -e POSTGRES_PASSWORD=postgres \
+                  -p 5432:5432 \
+                  -v setic_postgres_data:/var/lib/postgresql/data \
+                  docker.io/library/postgres:16-alpine > /dev/null 2>&1 || docker start setic_postgres > /dev/null 2>&1
+                echo "[DB] Container PostgreSQL pronto na porta 5432."
+              else
+                echo "[DB] Nem Podman nem Docker encontrados. Use docker-compose up -d manualmente."
+              fi
+            }
+
+            parar-db() {
+              echo "[DB] Encerrando container PostgreSQL..."
+              if command -v podman > /dev/null 2>&1; then
+                podman stop setic_postgres > /dev/null 2>&1 || true
+              elif command -v docker > /dev/null 2>&1; then
+                docker stop setic_postgres > /dev/null 2>&1 || true
+              fi
+              echo "[DB] Container encerrado."
+            }
+
+            # 4. Aliases de Operação Rápida
             alias iniciar-api="uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
             alias iniciar-painel="streamlit run panel/app.py --server.port 8501 --server.address 0.0.0.0"
-            alias parar-db="pg_ctl -D \"\$PGDATA\" stop"
-            alias iniciar-db="pg_ctl -D \"\$PGDATA\" -l \"\$PGLOGS/postgresql.log\" -o \"-k \$PGSOCKET -p \$PGPORT\" start"
             alias verificar-codigo="ruff check . && ruff format --check . && pyright"
             alias testar-pipeline="pytest tests/ -v"
 
             iniciar-tudo() {
+              echo "[SETIC] Inicializando container do banco de dados..."
+              iniciar-db
+              sleep 1.5
               echo "[SETIC] Iniciando API FastAPI (8000) e Painel Streamlit (8501)..."
               uvicorn app.main:app --host 0.0.0.0 --port 8000 &
               PID_API=$!
@@ -160,9 +162,11 @@
 
             echo ""
             echo "Comandos disponíveis:"
+            echo "  iniciar-db       -> Inicia o container PostgreSQL 16 (Podman/Docker)"
+            echo "  parar-db         -> Encerra o container PostgreSQL"
             echo "  iniciar-api      -> Inicia o servidor FastAPI (http://localhost:8000/docs)"
             echo "  iniciar-painel   -> Inicia o Dashboard Streamlit (http://localhost:8501)"
-            echo "  iniciar-tudo     -> Inicia ambos os serviços concorrentemente"
+            echo "  iniciar-tudo     -> Inicia container DB, API e Painel concorrentemente"
             echo "  verificar-codigo -> Executa ruff e pyright conforme diretrizes de AGENTS.md"
             echo "  testar-pipeline  -> Executa a suíte de testes do motor de qualidade"
             echo "====================================================================="

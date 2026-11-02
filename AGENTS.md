@@ -64,7 +64,7 @@ Cada commit deve representar uma única camada arquitetural ou unidade lógica i
 ## 4. Salvaguardas Arquiteturais Inegociáveis
 
 1. **Uso de Bibliotecas Nacionais Homologadas**:
-   - É expressamente proibido reescrever algoritmos de CPF/CNPJ com expressões regulares artesanais quando dispomos de `brutils` e `validate-docbr`.
+   - É expressamente proibido reescrever algoritmos de CPF/CNPJ com expressões regulares artesanais quando dispomos de `brutils`.
    - O catálogo oficial de todos os 5.570 municípios brasileiros deve ser resolvido diretamente através dos dados do pacote `brutils` (`brutils/data/cities_code.json`). Requisições externas à rede durante a validação são expressamente proibidas; o motor opera 100% offline, com máxima autonomia e determinismo.
    - Validações telefônicas e verificação de DDDs devem utilizar `phonenumbers` (Google libphonenumber), eliminando mapeamentos manuais de operadoras ou DDDs.
    - Variações ortográficas informais e aproximações devem ser resolvidas com `RapidFuzz` e `Unidecode`.

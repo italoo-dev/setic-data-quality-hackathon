@@ -42,6 +42,7 @@
             zlib
             git
             curl
+            podman-compose
           ];
 
           shellHook = ''

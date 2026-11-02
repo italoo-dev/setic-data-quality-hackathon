@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -20,8 +22,16 @@ import requests
 import streamlit as st
 from sqlalchemy.orm import Session
 
-from app.database import RegistroAuditoria, RegraValidacao, SessionLocal, init_db
-from app.engine import MotorValidacao
+# Previne que o arquivo 'panel/app.py' cause sombreamento do pacote 'app' no sys.path do Streamlit
+_ROOT_DIR = str(Path(__file__).resolve().parent.parent)
+_PANEL_DIR = str(Path(__file__).resolve().parent)
+while _PANEL_DIR in sys.path:
+    sys.path.remove(_PANEL_DIR)
+if _ROOT_DIR not in sys.path:
+    sys.path.insert(0, _ROOT_DIR)
+
+from app.database import RegistroAuditoria, RegraValidacao, SessionLocal, init_db  # noqa: E402
+from app.engine import MotorValidacao  # noqa: E402
 
 # Configuração da Página Streamlit
 st.set_page_config(

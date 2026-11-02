@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Mapping
 
 from sqlalchemy.orm import Session
 
@@ -49,17 +50,18 @@ class ValidationPipeline:
 
     def execute(
         self,
-        dados_entrada: dict[str, object],
+        dados_entrada: Mapping[str, object],
         sistema_origem: str,
     ) -> ResultadoMotor:
         """Executa sequencialmente todas as etapas do pipeline e persiste a auditoria."""
         inicio = time.perf_counter()
         protocolo = str(uuid.uuid4())
+        dados_dict = dict(dados_entrada)
 
         context = ExecutionContext(
             sistema_origem=sistema_origem,
             protocolo=protocolo,
-            dados_brutos=dados_entrada,
+            dados_brutos=dados_dict,
             dados_normalizados=dict(dados_entrada),
             inicio_tempo=inicio,
         )
@@ -82,7 +84,7 @@ class ValidationPipeline:
             sistema_origem=sistema_origem,
             sucesso=sucesso,
             status_http=status_http,
-            dados_entrada=dados_entrada,
+            dados_entrada=dados_dict,
             dados_normalizados=dados_norm,
             erros=erros_dict,
             tempo_processamento_ms=tempo_processamento_ms,

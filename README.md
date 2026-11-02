@@ -48,11 +48,11 @@ Quando o dado possui **defeito estrutural, matemático, semântico ou calendári
 
 ### 1.3. Arquitetura Modular em Camadas (DDD, Pipeline & Strategy Patterns)
 O sistema adota os princípios de Clean Architecture, Domain-Driven Design (DDD) e SOLID:
-- **Camada de Apresentação (`app/api/`)**: Roteadores modulares dedicados (`validation.py`, `rules.py`, `metrics.py`, `audit.py`) desacoplados de regras de persistência via injeção de dependências (`dependencies.py`).
-- **Camada de Domínio (`app/domain/`)**: Contratos estritos em Python Protocols (`interfaces.py`) e Value Objects imutáveis (`models.py`: `ExecutionContext`, `ErroDiagnosticoItem`, `ResultadoMotor`).
-- **Padrão Strategy (`app/validators/`)**: Validadores atômicos e independentes herdando de `BaseValidator` (`CPFValidator`, `CNPJValidator`, `PhoneValidator`, `EmailValidator`, `PISValidator`, `CEPValidator`, `DateTimeValidator`, `IBGEMunicipioValidator`), permitindo inclusão de novos tipos sem alteração do código existente (Open/Closed Principle).
-- **Padrão Pipeline (`app/engine/`)**: `ValidationPipeline` orquestra sequencialmente os estágios (`CoreTierStep` $\rightarrow$ `DynamicTierStep` $\rightarrow$ Telemetria), mantendo a fachada `MotorValidacao` para 100% de compatibilidade reversa.
-- **Padrão Repository (`app/repositories/`)**: Desacoplamento da camada de persistência com `AuditRepository` e `RuleRepository`, isolando operações SQL e cálculos analíticos.
+- **Camada de Apresentação (`backend/api/`)**: Roteadores modulares dedicados (`validation.py`, `rules.py`, `metrics.py`, `audit.py`) desacoplados de regras de persistência via injeção de dependências (`dependencies.py`).
+- **Camada de Domínio (`backend/domain/`)**: Contratos estritos em Python Protocols (`interfaces.py`) e Value Objects imutáveis (`models.py`: `ExecutionContext`, `ErroDiagnosticoItem`, `ResultadoMotor`).
+- **Padrão Strategy (`backend/validators/`)**: Validadores atômicos e independentes herdando de `BaseValidator` (`CPFValidator`, `CNPJValidator`, `PhoneValidator`, `EmailValidator`, `PISValidator`, `CEPValidator`, `DateTimeValidator`, `IBGEMunicipioValidator`), permitindo inclusão de novos tipos sem alteração do código existente (Open/Closed Principle).
+- **Padrão Pipeline (`backend/engine/`)**: `ValidationPipeline` orquestra sequencialmente os estágios (`CoreTierStep` $\rightarrow$ `DynamicTierStep` $\rightarrow$ Telemetria), mantendo a fachada `MotorValidacao` para 100% de compatibilidade reversa.
+- **Padrão Repository (`backend/repositories/`)**: Desacoplamento da camada de persistência com `AuditRepository` e `RuleRepository`, isolando operações SQL e cálculos analíticos.
 
 ---
 
@@ -106,14 +106,14 @@ Dentro do shell `nix develop`:
 
 ### 4.1. Iniciar a API REST FastAPI
 ```bash
-uvicorn app.main:app --reload --port 8000
+uvicorn backend.main:app --reload --port 8000
 ```
 - **Documentação Swagger (OpenAPI em pt-BR)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Documentação ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 
 ### 4.2. Iniciar o Painel Streamlit da CAGD
 ```bash
-streamlit run panel/app.py
+streamlit run frontend/app.py
 ```
 - **Interface Web da CAGD**: [http://localhost:8501](http://localhost:8501)
 

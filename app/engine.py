@@ -22,7 +22,9 @@ from app.core_validators import (
     validar_e_normalizar_cnpj,
     validar_e_normalizar_cpf,
     validar_e_normalizar_data,
+    validar_e_normalizar_email,
     validar_e_normalizar_municipio,
+    validar_e_normalizar_pis,
     validar_e_normalizar_telefone,
 )
 from app.database import RegistroAuditoria, RegraValidacao
@@ -211,6 +213,42 @@ class MotorValidacao:
                         valor_rejeitado=res_muni.valor_rejeitado,
                         formato_esperado=res_muni.formato_esperado,
                         mensagem=res_muni.mensagem_erro,
+                    )
+                )
+
+        # 1.7 Validação e Normalização de E-mail via brutils
+        if "email" in dados_entrada and dados_entrada["email"] is not None:
+            res_email = validar_e_normalizar_email(dados_entrada["email"])
+            if res_email.valido:
+                dados_normalizados["email"] = res_email.valor_normalizado
+                if res_email.mensagem_transformacao:
+                    transformacoes.append(res_email.mensagem_transformacao)
+            else:
+                erros.append(
+                    ErroDiagnosticoItem(
+                        campo="email",
+                        regra_violada=res_email.regra_violada,
+                        valor_rejeitado=res_email.valor_rejeitado,
+                        formato_esperado=res_email.formato_esperado,
+                        mensagem=res_email.mensagem_erro,
+                    )
+                )
+
+        # 1.8 Validação e Normalização de PIS/PASEP via brutils
+        if "pis" in dados_entrada and dados_entrada["pis"] is not None:
+            res_pis = validar_e_normalizar_pis(dados_entrada["pis"])
+            if res_pis.valido:
+                dados_normalizados["pis"] = res_pis.valor_normalizado
+                if res_pis.mensagem_transformacao:
+                    transformacoes.append(res_pis.mensagem_transformacao)
+            else:
+                erros.append(
+                    ErroDiagnosticoItem(
+                        campo="pis",
+                        regra_violada=res_pis.regra_violada,
+                        valor_rejeitado=res_pis.valor_rejeitado,
+                        formato_esperado=res_pis.formato_esperado,
+                        mensagem=res_pis.mensagem_erro,
                     )
                 )
 

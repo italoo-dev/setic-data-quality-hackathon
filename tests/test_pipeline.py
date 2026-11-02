@@ -69,10 +69,10 @@ def test_cpf_digitos_repetidos_bloqueio():
 
 def test_cnpj_valido_normalizacao():
     """Verifica se CNPJ válido é normalizado para 14 dígitos limpos."""
-    from validate_docbr import CNPJ
+    import brutils
 
-    cnpj_gerador = CNPJ()
-    cnpj_valido_com_mascara = cnpj_gerador.generate(mask=True)
+    cnpj_limpo = brutils.generate_cnpj()
+    cnpj_valido_com_mascara = brutils.format_cnpj(cnpj_limpo)
     res = validar_e_normalizar_cnpj(cnpj_valido_com_mascara)
     assert res.valido is True
     assert len(res.valor_normalizado) == 14

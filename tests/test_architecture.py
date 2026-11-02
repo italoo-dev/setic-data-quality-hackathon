@@ -121,3 +121,36 @@ def test_pipeline_pattern_end_to_end_orchestration(db):
     assert resultado.dados_normalizados["data_nascimento"] == "1995-10-10"
     assert resultado.dados_normalizados["codigo_ibge"] == "1100205"
     assert resultado.tempo_processamento_ms > 0
+
+
+def test_rule_repository_export_import(db):
+    """Verifica isolamento e manipulação de conjuntos de regras via RuleRepository."""
+    rule_repo = RuleRepository(db)
+
+    # Exportar regras dinâmicas
+    regras_exportadas = rule_repo.exportar_regras(apenas_dinamicas=True)
+    assert isinstance(regras_exportadas, list)
+
+    # Importar uma regra de teste
+    regras_novas: list[dict[str, object]] = [
+        {
+            "campo": "contrato_ti_teste",
+            "nome_regra": "Padrão de Contrato de TI",
+            "descricao": "Regra para testes automatizados",
+            "padrao_regex": r"^TI-\d{4}$",
+            "mensagem_erro": "Número de contrato inválido",
+            "formato_esperado": "TI-1234",
+            "obrigatorio": False,
+            "ativo": True,
+        }
+    ]
+
+    res_imp = rule_repo.importar_regras(regras_novas, sobrescrever=False)
+    assert res_imp["sucesso"] is True
+    assert res_imp["total_criadas"] == 1
+
+    # Atualizar com sobrescrita
+    regras_novas[0]["mensagem_erro"] = "Contrato deve ser TI-XXXX"
+    res_imp2 = rule_repo.importar_regras(regras_novas, sobrescrever=True)
+    assert res_imp2["sucesso"] is True
+    assert res_imp2["total_atualizadas"] == 1

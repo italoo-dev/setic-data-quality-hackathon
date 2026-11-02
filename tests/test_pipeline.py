@@ -290,3 +290,91 @@ def test_api_bloqueio_alteracao_regra_imutavel(client):
     # Tentativa de toggle deve retornar 403 Forbidden
     resp_toggle = client.patch(f"/api/v1/regras/{regra_core['id']}/toggle")
     assert resp_toggle.status_code == 403
+
+
+def test_api_editar_regra_dinamica(client):
+    """Verifica a edição (PUT) de uma regra dinâmica existente."""
+    # Criar regra temporária para teste
+    payload_criacao = {
+        "campo": "codigo_projeto_teste",
+        "nome_regra": "Padrão de Projeto Original",
+        "descricao": "Descrição teste",
+        "padrao_regex": r"^PRJ-\d{4}$",
+        "mensagem_erro": "Código de projeto inválido.",
+        "formato_esperado": "PRJ-9999",
+        "obrigatorio": False,
+        "ativo": True,
+    }
+    resp_post = client.post("/api/v1/regras", json=payload_criacao)
+    assert resp_post.status_code == 201
+    regra_criada = resp_post.json()
+    regra_id = regra_criada["id"]
+
+    # Atualizar atributos da regra
+    payload_edicao = {
+        "nome_regra": "Padrão de Projeto Atualizado",
+        "padrao_regex": r"^PRJ-\d{5}$",
+        "mensagem_erro": "Código de projeto deve ter 5 dígitos.",
+        "formato_esperado": "PRJ-99999",
+        "obrigatorio": True,
+    }
+    resp_put = client.put(f"/api/v1/regras/{regra_id}", json=payload_edicao)
+    assert resp_put.status_code == 200
+    regra_atualizada = resp_put.json()
+    assert regra_atualizada["nome_regra"] == "Padrão de Projeto Atualizado"
+    assert regra_atualizada["padrao_regex"] == r"^PRJ-\d{5}$"
+    assert regra_atualizada["formato_esperado"] == "PRJ-99999"
+    assert regra_atualizada["obrigatorio"] is True
+
+    # Limpeza
+    client.delete(f"/api/v1/regras/{regra_id}")
+
+
+def test_api_exportar_e_importar_regras(client):
+    """Verifica os fluxos de exportação e importação em lote de regras dinâmicas."""
+    # 1. Exportação
+    resp_exp = client.get("/api/v1/regras/exportar")
+    assert resp_exp.status_code == 200
+    dados_exp = resp_exp.json()
+    assert dados_exp["versao"] == "1.0"
+    assert "regras" in dados_exp
+    assert isinstance(dados_exp["regras"], list)
+
+    # 2. Importação com nova regra
+    regra_importacao = {
+        "campo": "numero_processo_cagd",
+        "nome_regra": "Padrão de Processo CAGD",
+        "descricao": "Regra importada via automação",
+        "padrao_regex": r"^CAGD-\d{4}/\d{4}$",
+        "mensagem_erro": "Processo fora do padrão CAGD.",
+        "formato_esperado": "CAGD-1234/2026",
+        "obrigatorio": False,
+        "ativo": True,
+    }
+    payload_imp = {
+        "sobrescrever": False,
+        "regras": [regra_importacao],
+    }
+    resp_imp = client.post("/api/v1/regras/importar", json=payload_imp)
+    assert resp_imp.status_code == 200
+    res_imp = resp_imp.json()
+    assert res_imp["sucesso"] is True
+    assert res_imp["total_processadas"] == 1
+    assert res_imp["total_criadas"] == 1
+
+    # 3. Importação duplicada sem sobrescrita (deve ignorar)
+    resp_imp2 = client.post("/api/v1/regras/importar", json=payload_imp)
+    assert resp_imp2.status_code == 200
+    res_imp2 = resp_imp2.json()
+    assert res_imp2["total_ignoradas"] == 1
+
+    # 4. Importação duplicada com sobrescrita ativada (deve atualizar)
+    regra_importacao["mensagem_erro"] = "Mensagem atualizada via sobrescrita."
+    payload_imp_sobrescrita = {
+        "sobrescrever": True,
+        "regras": [regra_importacao],
+    }
+    resp_imp3 = client.post("/api/v1/regras/importar", json=payload_imp_sobrescrita)
+    assert resp_imp3.status_code == 200
+    res_imp3 = resp_imp3.json()
+    assert res_imp3["total_atualizadas"] == 1

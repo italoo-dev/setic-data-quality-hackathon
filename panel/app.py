@@ -353,8 +353,13 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
     try:
         todas_regras = db.query(RegraValidacao).order_by(RegraValidacao.id.asc()).all()
 
-        tab_lista, tab_cadastro = st.tabs(
-            ["📋 Regras Ativas no Sistema", "➕ Cadastrar Nova Regra"]
+        tab_lista, tab_cadastro, tab_edicao, tab_import_export = st.tabs(
+            [
+                "📋 Regras Ativas no Sistema",
+                "➕ Cadastrar Nova Regra",
+                "✏️ Editar Regra Existente",
+                "💾 Exportar / Importar Regras",
+            ]
         )
 
         with tab_lista:
@@ -493,6 +498,234 @@ elif menu_selecionado == "⚙️ Gestão de Regras (Dual-Tier)":
                         db.commit()
                         st.success(f"Regra para o campo '{novo_campo}' criada com sucesso!")
                         st.rerun()
+
+        with tab_edicao:
+            st.subheader("✏️ Edição de Regra Dinâmica")
+            st.caption(
+                "Modifique parâmetros, expressões regulares ou mensagens de regras existentes."
+            )
+
+            regras_dinamicas_edicao = [r for r in todas_regras if not r.eh_imutavel]
+            if not regras_dinamicas_edicao:
+                st.info("Nenhuma regra dinâmica customizada cadastrada para edição.")
+            else:
+                regra_para_editar = st.selectbox(
+                    "Selecione a regra para editar:",
+                    regras_dinamicas_edicao,
+                    key="select_regra_edicao",
+                    format_func=lambda x: (
+                        f"[{x.id}] {x.campo} - {x.nome_regra} ({'Ativa' if x.ativo else 'Inativa'})"
+                    ),
+                )
+
+                with st.form("form_editar_regra"):
+                    col_e1, col_e2 = st.columns(2)
+                    with col_e1:
+                        edit_campo = st.text_input("Nome do Campo*", value=regra_para_editar.campo)
+                        edit_nome = st.text_input(
+                            "Nome da Regra*", value=regra_para_editar.nome_regra
+                        )
+                        edit_formato = st.text_input(
+                            "Formato Esperado*", value=regra_para_editar.formato_esperado
+                        )
+                    with col_e2:
+                        edit_regex = st.text_input(
+                            "Padrão Regex*",
+                            value=regra_para_editar.padrao_regex or "",
+                            help="Expressão regular para validar o formato do campo.",
+                        )
+                        edit_mensagem = st.text_area(
+                            "Mensagem de Erro Diagnóstica*",
+                            value=regra_para_editar.mensagem_erro,
+                            help="Mensagem amigável retornada quando houver bloqueio 422.",
+                        )
+                        col_chk1, col_chk2 = st.columns(2)
+                        with col_chk1:
+                            edit_obrigatorio = st.checkbox(
+                                "Obrigatório?", value=regra_para_editar.obrigatorio
+                            )
+                        with col_chk2:
+                            edit_ativo = st.checkbox("Ativo?", value=regra_para_editar.ativo)
+
+                    edit_descricao = st.text_area(
+                        "Descrição Operacional da Regra",
+                        value=regra_para_editar.descricao or "",
+                    )
+
+                    # Testador ao vivo do regex dentro do formulário de edição
+                    st.markdown("**🧪 Testador Imediato do Regex**")
+                    texto_teste_edit = st.text_input(
+                        "Valor de Teste para o Regex",
+                        value=edit_formato,
+                        key="teste_regex_edit_input",
+                    )
+                    if edit_regex:
+                        try:
+                            match_edit = bool(re.search(edit_regex, texto_teste_edit))
+                            if match_edit:
+                                st.caption("✅ Padrão Regex Confere com o valor de teste!")
+                            else:
+                                st.caption("❌ Padrão Regex NÃO confere com o valor de teste.")
+                        except re.error as e:
+                            st.caption(f"⚠️ Erro de sintaxe no Regex: {e}")
+
+                    btn_salvar_edicao = st.form_submit_button(
+                        "💾 Salvar Alterações", type="primary"
+                    )
+
+                    if btn_salvar_edicao:
+                        if (
+                            not edit_campo
+                            or not edit_nome
+                            or not edit_regex
+                            or not edit_mensagem
+                            or not edit_formato
+                        ):
+                            st.error("Por favor, preencha todos os campos obrigatórios (*).")
+                        else:
+                            try:
+                                re.compile(edit_regex.strip())
+                                regra_para_editar.campo = edit_campo.strip().lower()
+                                regra_para_editar.nome_regra = edit_nome.strip()
+                                regra_para_editar.formato_esperado = edit_formato.strip()
+                                regra_para_editar.padrao_regex = edit_regex.strip()
+                                regra_para_editar.mensagem_erro = edit_mensagem.strip()
+                                regra_para_editar.obrigatorio = edit_obrigatorio
+                                regra_para_editar.ativo = edit_ativo
+                                regra_para_editar.descricao = (
+                                    edit_descricao.strip() if edit_descricao else None
+                                )
+                                db.commit()
+                                st.success(
+                                    f"Regra [{regra_para_editar.id}] atualizada com sucesso!"
+                                )
+                                st.rerun()
+                            except re.error as err:
+                                st.error(f"Padrão Regex inválido: {err}")
+
+        with tab_import_export:
+            st.subheader("💾 Exportação e Importação de Regras Dinâmicas")
+            st.caption(
+                "Permite efetuar backup, versionamento declarativo e sincronização de regras entre ambientes (Desenvolvimento, Homologação e Produção)."
+            )
+
+            col_exp, col_imp = st.columns(2)
+
+            with col_exp:
+                st.markdown("### 📤 Exportar Conjunto de Regras")
+                regras_dinamicas_exp = [r for r in todas_regras if not r.eh_imutavel]
+                st.write(
+                    f"Total de regras dinâmicas prontas para exportação: **{len(regras_dinamicas_exp)}**"
+                )
+
+                dados_exportacao = {
+                    "versao": "1.0",
+                    "gerado_em": pd.Timestamp.now().isoformat(),
+                    "total_regras": len(regras_dinamicas_exp),
+                    "regras": [
+                        {
+                            "campo": r.campo,
+                            "nome_regra": r.nome_regra,
+                            "descricao": r.descricao,
+                            "padrao_regex": r.padrao_regex,
+                            "mensagem_erro": r.mensagem_erro,
+                            "formato_esperado": r.formato_esperado,
+                            "obrigatorio": r.obrigatorio,
+                            "ativo": r.ativo,
+                        }
+                        for r in regras_dinamicas_exp
+                    ],
+                }
+
+                json_export_str = json.dumps(dados_exportacao, indent=2, ensure_ascii=False)
+
+                st.download_button(
+                    label="📥 Baixar Regras em JSON",
+                    data=json_export_str,
+                    file_name="regras_dinamicas_cagd.json",
+                    mime="application/json",
+                    width="stretch",
+                )
+
+                if regras_dinamicas_exp:
+                    with st.expander("Pré-visualizar JSON de Exportação"):
+                        st.json(dados_exportacao)
+
+            with col_imp:
+                st.markdown("### 📥 Importar Conjunto de Regras")
+                arquivo_upload = st.file_uploader(
+                    "Carregar arquivo JSON de regras:",
+                    type=["json"],
+                    key="uploader_regras_json",
+                )
+                sobrescrever_existentes = st.checkbox(
+                    "Sobrescrever regras existentes com mesmo campo e nome?",
+                    value=False,
+                    help="Se marcado, regras já existentes terão seus atributos (regex, mensagens) atualizados. Se desmarcado, serão mantidas intactas.",
+                )
+
+                if arquivo_upload is not None:
+                    try:
+                        conteudo_json = json.loads(arquivo_upload.getvalue().decode("utf-8"))
+                        regras_para_importar: list[dict[str, object]] = []
+                        if isinstance(conteudo_json, dict) and "regras" in conteudo_json:
+                            raw_regras = conteudo_json.get("regras")
+                            if isinstance(raw_regras, list):
+                                for item_regra in raw_regras:
+                                    if isinstance(item_regra, dict):
+                                        regras_para_importar.append(item_regra)
+                        elif isinstance(conteudo_json, list):
+                            for item_regra in conteudo_json:
+                                if isinstance(item_regra, dict):
+                                    regras_para_importar.append(item_regra)
+
+                        st.info(
+                            f"Arquivo carregado com sucesso contendo **{len(regras_para_importar)}** regras potenciais."
+                        )
+
+                        if st.button(
+                            "🚀 Processar e Importar Regras",
+                            type="primary",
+                            width="stretch",
+                        ):
+                            from app.repositories.rules import RuleRepository
+
+                            rule_repo = RuleRepository(db)
+                            resultado_imp = rule_repo.importar_regras(
+                                regras=regras_para_importar,
+                                sobrescrever=sobrescrever_existentes,
+                            )
+
+                            col_m1, col_m2, col_m3 = st.columns(3)
+                            col_m1.metric(
+                                "Criadas",
+                                int(str(resultado_imp.get("total_criadas", 0))),
+                            )
+                            col_m2.metric(
+                                "Atualizadas",
+                                int(str(resultado_imp.get("total_atualizadas", 0))),
+                            )
+                            col_m3.metric(
+                                "Ignoradas",
+                                int(str(resultado_imp.get("total_ignoradas", 0))),
+                            )
+
+                            raw_msgs = resultado_imp.get("mensagens")
+                            if isinstance(raw_msgs, list) and raw_msgs:
+                                with st.expander("Ver Relatório Detalhado", expanded=True):
+                                    for m in raw_msgs:
+                                        st.write(f"- {m}")
+
+                            raw_erros = resultado_imp.get("erros")
+                            if isinstance(raw_erros, list) and raw_erros:
+                                for err in raw_erros:
+                                    st.error(f"Erro: {err}")
+
+                            st.success("Importação concluída!")
+                            st.rerun()
+
+                    except Exception as ex:
+                        st.error(f"Falha ao processar arquivo JSON: {ex}")
 
     finally:
         db.close()

@@ -104,7 +104,7 @@
             # 2. Inicialização do Banco PostgreSQL se inexistente
             if [ ! -f "$PGDATA/PG_VERSION" ]; then
               echo "[DB] Inicializando cluster PostgreSQL local em $PGDATA..."
-              initdb -D "$PGDATA" --auth=trust --no-locale --encoding=UTF8 > /dev/null 2>&1
+              initdb -U postgres -D "$PGDATA" --auth=trust --no-locale --encoding=UTF8 > /dev/null 2>&1
               echo "unix_socket_directories = '$PGSOCKET'" >> "$PGDATA/postgresql.conf"
               echo "port = $PGPORT" >> "$PGDATA/postgresql.conf"
               echo "listen_addresses = '127.0.0.1'" >> "$PGDATA/postgresql.conf"

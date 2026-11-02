@@ -33,6 +33,8 @@ A sua responsabilidade primordial divide-se em dois princípios inegociáveis:
 
 Os agentes de desenvolvimento devem aderir ao princípio de **Commits Atômicos e Isolados**. Jamais crie commits monolíticos (*git dumps*) que combinem camadas distintas da aplicação.
 
+Ao realizar alterações ou ajustes finos intimamente relacionados que façam sentido lógico juntos (ex.: refinamentos de uma mesma unidade lógica, pequenas correções de formatação/tipagem ou ajustes diretamente decorrentes da alteração anterior), **prefira fazer amend (`git commit --amend`)** em vez de fragmentar o histórico em múltiplos microcommits dispersos. Mantenha sempre a **atomicidade** e a coesão conceitual de cada camada arquitetural.
+
 Cada commit deve representar uma única camada arquitetural ou unidade lógica independente:
 
 | Tipo | Escopo | Descrição do Commit |
@@ -81,18 +83,38 @@ Cada commit deve representar uma única camada arquitetural ou unidade lógica i
 
 ## 5. Ciclo de Verificação Pré-Commit (Verification Loop)
 
-A integridade do código é garantida automaticamente por **Git Pre-Commit Hooks** (`.pre-commit-config.yaml`), que interceptam a criação de commits executando o linter e o formatador `ruff`, além da checagem estática de tipos `pyright`.
+A integridade do código e a ausência de regressões são garantidas em múltiplas camadas mandatórias antes de qualquer submissão ou commit:
 
-Os hooks são instalados automaticamente ao carregar o ambiente (`shellHook` do `flake.nix` ou `pre-commit install`).
+1. **Git Pre-Commit Hooks Declarativos** (`git-hooks.nix` no `flake.nix`):
+   - Interceptam commits executando `ruff`, `ruff-format`, `trim-trailing-whitespace` e `end-of-file-fixer`.
+   - Podem ser validados manualmente via `pre-commit run --all-files` ou `nix flake check`.
 
-Para validação manual ou execução da suíte completa de testes antes da submissão:
+2. **Checagem Estática de Tipos & Ausência de `Any`**:
+   - `pyright` deve reportar 0 erros e 0 warnings.
+   - `git grep -n "\bAny\b" backend/ frontend/` deve retornar zero ocorrências.
+
+3. **Suíte de Testes Automatizados**:
+   - `pytest` deve aprovar 100% dos testes unitários e de integração (`backend/tests`, `frontend/tests`).
+
+4. **Validação Obrigatória em Tempo de Execução e Build (Runtime Sanity Check & Build)**:
+   - **É terminantemente proibido** submeter alterações confiando unicamente em linters ou tipagem estática sem comprovar que o sistema **efetivamente inicializa e roda em runtime sem falhas** (`ModuleNotFoundError`, `ImportError`, problemas de injeção ou falhas de ciclo de vida).
+   - **Build do Pacote**: Executar `nix build` para certificar que a derivação do pacote empacota e distribui os artefatos com sucesso.
+   - **Teste de Inicialização da API FastAPI**: Executar a API (`uvicorn backend.main:app --port 8000` ou via import/smoke test) e validar que o endpoint `/api/v1/saude` responde com status 200.
+   - **Teste de Inicialização do Streamlit**: Executar o painel (`streamlit run frontend/app.py --server.headless true`) e certificar a ausência de exceções na montagem da interface.
 
 ```bash
 # 1. Execução manual dos hooks pré-commit em todos os arquivos
 pre-commit run --all-files
 
-# 2. Execução dos testes automatizados (unitários e integração)
+# 2. Checagem estática de tipos
+pyright
+
+# 3. Execução dos testes automatizados (unitários e integração)
 pytest
+
+# 4. Validação do build Nix e smoke test de runtime
+nix build
+python -c "from backend.main import app; print('Runtime OK')"
 ```
 
-Qualquer erro de tipo, sintaxe ou quebra de contrato identificada no ciclo de verificação deve ser sanada antes da criação do commit.
+Qualquer erro de tipo, sintaxe, quebra de contrato ou falha em tempo de execução deve ser sanada antes da criação do commit.

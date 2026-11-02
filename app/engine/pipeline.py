@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Any
+
+from sqlalchemy.orm import Session
 
 from app.domain.interfaces import (
     AuditRepositoryProtocol,
@@ -48,7 +49,7 @@ class ValidationPipeline:
 
     def execute(
         self,
-        dados_entrada: dict[str, Any],
+        dados_entrada: dict[str, object],
         sistema_origem: str,
     ) -> ResultadoMotor:
         """Executa sequencialmente todas as etapas do pipeline e persiste a auditoria."""
@@ -102,7 +103,7 @@ class ValidationPipeline:
 class MotorValidacao:
     """Fachada compatível com a interface anterior do motor para garantir retrocompatibilidade."""
 
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: Session) -> None:
         self.db = db
         self.rule_repo = RuleRepository(db)
         self.audit_repo = AuditRepository(db)
@@ -110,7 +111,7 @@ class MotorValidacao:
 
     def executar(
         self,
-        dados_entrada: dict[str, Any],
+        dados_entrada: dict[str, object],
         sistema_origem: str,
     ) -> ResultadoMotor:
         """Delega a execução para o ValidationPipeline."""

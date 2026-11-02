@@ -203,6 +203,7 @@ class RegraValidacaoCriacao(BaseModel):
 class RegraValidacaoAtualizacao(BaseModel):
     """Esquema para atualização de uma regra dinâmica existente."""
 
+    campo: str | None = Field(None, min_length=2, max_length=64)
     nome_regra: str | None = Field(None, min_length=3, max_length=128)
     descricao: str | None = None
     padrao_regex: str | None = Field(None, max_length=512)
@@ -229,3 +230,57 @@ class RegraValidacaoResposta(BaseModel):
     eh_imutavel: bool
     criado_em: datetime | None
     atualizado_em: datetime | None
+
+
+class RegraExportadaItem(BaseModel):
+    """Representação de uma regra dinâmica no formato de exportação/importação."""
+
+    campo: str = Field(..., min_length=2, max_length=64, description="Nome do campo")
+    nome_regra: str = Field(
+        ..., min_length=3, max_length=128, description="Título descritivo da regra"
+    )
+    descricao: str | None = Field(None, description="Detalhamento operacional")
+    padrao_regex: str | None = Field(None, max_length=512, description="Expressão regular")
+    mensagem_erro: str = Field(..., min_length=5, description="Mensagem diagnóstica")
+    formato_esperado: str = Field(..., min_length=3, max_length=256, description="Formato exigido")
+    obrigatorio: bool = Field(default=False, description="Flag de obrigatoriedade")
+    ativo: bool = Field(default=True, description="Status da regra")
+
+
+class ConjuntoRegrasExportacao(BaseModel):
+    """Arquivo consolidado de exportação do conjunto de regras dinâmicas."""
+
+    versao: str = Field(default="1.0", description="Versão do layout de exportação")
+    gerado_em: str = Field(..., description="Timestamp ISO-8601 da extração")
+    total_regras: int = Field(..., description="Quantidade total de regras contidas no pacote")
+    regras: list[RegraExportadaItem] = Field(
+        ..., description="Lista de regras dinâmicas exportadas"
+    )
+
+
+class RequisicaoImportacaoRegras(BaseModel):
+    """Payload para importação em lote de regras de validação."""
+
+    sobrescrever: bool = Field(
+        default=False,
+        description="Se verdadeiro, atualiza regras existentes com mesmo campo e nome; caso contrário, ignora",
+    )
+    regras: list[RegraExportadaItem] = Field(
+        ..., min_length=1, description="Lista de regras a serem importadas"
+    )
+
+
+class ResultadoImportacaoRegras(BaseModel):
+    """Resultado analítico do processamento de importação em lote."""
+
+    sucesso: bool = Field(..., description="Status geral da operação")
+    total_processadas: int = Field(..., description="Total de itens analisados")
+    total_criadas: int = Field(..., description="Quantidade de novas regras cadastradas")
+    total_atualizadas: int = Field(..., description="Quantidade de regras existentes atualizadas")
+    total_ignoradas: int = Field(..., description="Quantidade de regras mantidas sem alteração")
+    erros: list[str] = Field(
+        default_factory=list, description="Lista de mensagens de falha ou inconsistência"
+    )
+    mensagens: list[str] = Field(
+        default_factory=list, description="Lista de eventos informativos da importação"
+    )

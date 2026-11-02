@@ -35,6 +35,8 @@ Development agents must strictly adhere to **Atomic and Isolated Commits**. Neve
 
 When making closely related modifications, formatting fixes, or refinements belonging to the same logical unit/layer, **prefer amending the previous commit (`git commit --amend`)** rather than fragmenting history into multiple scattered micro-commits. Always preserve **atomicity** and conceptual cohesion across each architectural layer.
 
+**Agents must never execute `git push`**: all commits, amends, and rebases must remain strictly local on the working branch. Pushing to remote repositories (`origin`) is exclusively reserved for the human developer.
+
 Each commit must represent a single architectural layer or independent logical unit:
 
 | Type | Scope | Commit Description |
@@ -120,3 +122,12 @@ python -c "from backend.main import app; print('Runtime OK')"
 ```
 
 Any syntax error, typing defect, contract violation, or runtime failure must be completely resolved before committing.
+
+---
+
+## 6. Remote Repository Operations (Strict Prohibition of Git Push)
+
+Coding agents must **never execute `git push` under any circumstances** (including `--force`, `--force-with-lease`, or standard push).
+- All work, verification passes, and atomic commits must remain exclusively local on the machine.
+- Pushing commits or tags to the remote repository (`origin`) is an action reserved exclusively for the human engineer.
+- Never trigger automated pushes or remote branch updates.

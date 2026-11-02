@@ -1,0 +1,117 @@
+"""Orquestrador do Pipeline de Validação e Normalização (Pipeline Pattern).
+
+Coordena sequencialmente:
+1. CoreTierStep: Regras de núcleo imutáveis e padronização canônica.
+2. DynamicTierStep: Regras dinâmicas cadastradas no PostgreSQL pela CAGD.
+3. Telemetria: Registro transacional de auditoria para cálculo de KPIs e métricas.
+"""
+
+from __future__ import annotations
+
+import time
+import uuid
+from typing import Any
+
+from app.domain.interfaces import (
+    AuditRepositoryProtocol,
+    PipelineStepProtocol,
+    RuleRepositoryProtocol,
+)
+from app.domain.models import ExecutionContext, ResultadoMotor
+from app.engine.core_tier import CoreTierStep
+from app.engine.dynamic_tier import DynamicTierStep
+from app.repositories.audit import AuditRepository
+from app.repositories.rules import RuleRepository
+
+
+class ValidationPipeline:
+    """Pipeline orquestrador de etapas de validação e normalização."""
+
+    def __init__(
+        self,
+        rule_repo: RuleRepositoryProtocol,
+        audit_repo: AuditRepositoryProtocol,
+        steps: list[PipelineStepProtocol] | None = None,
+    ) -> None:
+        self.rule_repo = rule_repo
+        self.audit_repo = audit_repo
+        self.core_step = CoreTierStep()
+        self.dynamic_step = DynamicTierStep(rule_repo)
+
+        self.steps: list[PipelineStepProtocol] = (
+            steps if steps is not None else [self.core_step, self.dynamic_step]
+        )
+
+    def add_step(self, step: PipelineStepProtocol) -> None:
+        """Adiciona uma etapa customizada ao pipeline de execução (OCP)."""
+        self.steps.append(step)
+
+    def execute(
+        self,
+        dados_entrada: dict[str, Any],
+        sistema_origem: str,
+    ) -> ResultadoMotor:
+        """Executa sequencialmente todas as etapas do pipeline e persiste a auditoria."""
+        inicio = time.perf_counter()
+        protocolo = str(uuid.uuid4())
+
+        context = ExecutionContext(
+            sistema_origem=sistema_origem,
+            protocolo=protocolo,
+            dados_brutos=dados_entrada,
+            dados_normalizados=dict(dados_entrada),
+            inicio_tempo=inicio,
+        )
+
+        # Execução sequencial das etapas do pipeline
+        for step in self.steps:
+            context = step.process(context)
+
+        tempo_processamento_ms = round((time.perf_counter() - inicio) * 1000.0, 2)
+        context.tempo_processamento_ms = tempo_processamento_ms
+
+        sucesso = context.sucesso
+        status_http = 200 if sucesso else 422
+        dados_norm = context.dados_normalizados if sucesso else None
+        erros_dict = [e.to_dict() for e in context.erros] if context.erros else None
+
+        # Persistência transacional de auditoria (DIP)
+        self.audit_repo.salvar_registro(
+            protocolo=protocolo,
+            sistema_origem=sistema_origem,
+            sucesso=sucesso,
+            status_http=status_http,
+            dados_entrada=dados_entrada,
+            dados_normalizados=dados_norm,
+            erros=erros_dict,
+            tempo_processamento_ms=tempo_processamento_ms,
+        )
+
+        return ResultadoMotor(
+            sucesso=sucesso,
+            protocolo=protocolo,
+            status_http=status_http,
+            sistema_origem=sistema_origem,
+            dados_normalizados=dados_norm,
+            erros=context.erros,
+            transformacoes=context.transformacoes,
+            tempo_processamento_ms=tempo_processamento_ms,
+        )
+
+
+class MotorValidacao:
+    """Fachada compatível com a interface anterior do motor para garantir retrocompatibilidade."""
+
+    def __init__(self, db: Any) -> None:
+        self.db = db
+        self.rule_repo = RuleRepository(db)
+        self.audit_repo = AuditRepository(db)
+        self.pipeline = ValidationPipeline(self.rule_repo, self.audit_repo)
+
+    def executar(
+        self,
+        dados_entrada: dict[str, Any],
+        sistema_origem: str,
+    ) -> ResultadoMotor:
+        """Delega a execução para o ValidationPipeline."""
+        return self.pipeline.execute(dados_entrada, sistema_origem)

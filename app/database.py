@@ -172,7 +172,7 @@ def popular_regras_iniciais(db: Any) -> None:
         {
             "campo": "cpf",
             "nome_regra": "Algoritmo Canônico de CPF (Receita Federal)",
-            "descricao": "Validação de formato e dígitos verificadores do CPF via algoritmo módulo 11 (brutils/validate-docbr).",
+            "descricao": "Validação de formato e dígitos verificadores do CPF via algoritmo módulo 11 (brutils).",
             "padrao_regex": r"^\d{11}$|^\d{3}\.\d{3}\.\d{3}-\d{2}$",
             "mensagem_erro": "O CPF informado possui dígitos verificadores inválidos ou estrutura matemática inconsistente.",
             "formato_esperado": "11 dígitos numéricos com dígitos verificadores válidos",
@@ -183,7 +183,7 @@ def popular_regras_iniciais(db: Any) -> None:
         {
             "campo": "cnpj",
             "nome_regra": "Algoritmo Canônico de CNPJ (Receita Federal)",
-            "descricao": "Validação estrita de dígitos verificadores e formato de CNPJ (brutils/validate-docbr).",
+            "descricao": "Validação estrita de dígitos verificadores e formato de CNPJ (brutils).",
             "padrao_regex": r"^\d{14}$|^\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}$",
             "mensagem_erro": "O CNPJ informado possui dígitos verificadores matematicamente inconsistentes.",
             "formato_esperado": "14 dígitos numéricos com dígitos verificadores válidos",

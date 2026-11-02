@@ -11,6 +11,9 @@ __pycache__/
 dist/
 build/
 
+# Git hooks (gerado pelo git-hooks.nix)
+.pre-commit-config.yaml
+
 # PostgreSQL local
 .postgres/
 

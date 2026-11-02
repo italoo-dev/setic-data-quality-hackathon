@@ -6,6 +6,7 @@ para CPF, CNPJ, datas, contatos, documentos, CEP e município/UF IBGE.
 
 from __future__ import annotations
 
+from app.domain.interfaces import PipelineStepProtocol
 from app.domain.models import ExecutionContext
 from app.validators.address import CEPValidator
 from app.validators.base import BaseValidator
@@ -17,7 +18,7 @@ from app.validators.document import PISValidator
 from app.validators.ibge import IBGEMunicipioValidator
 
 
-class CoreTierStep:
+class CoreTierStep(PipelineStepProtocol):
     """Etapa que executa validadores canônicos de núcleo sobre os dados brutos."""
 
     def __init__(self) -> None:

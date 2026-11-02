@@ -12,10 +12,11 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import RegistroAuditoria
+from app.domain.interfaces import AuditRepositoryProtocol
 from app.schemas import ItemContagem, MetricasOperacionaisCAGD, VolumeSistemaItem
 
 
-class AuditRepository:
+class AuditRepository(AuditRepositoryProtocol):
     """Repositório concreto de auditoria utilizando SQLAlchemy."""
 
     def __init__(self, db: Session) -> None:

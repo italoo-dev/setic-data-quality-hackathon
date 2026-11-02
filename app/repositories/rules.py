@@ -9,9 +9,10 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.database import RegraValidacao
+from app.domain.interfaces import RuleRepositoryProtocol
 
 
-class RuleRepository:
+class RuleRepository(RuleRepositoryProtocol):
     """Repositório concreto de regras de validação utilizando SQLAlchemy."""
 
     def __init__(self, db: Session) -> None:

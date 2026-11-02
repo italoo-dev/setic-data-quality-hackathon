@@ -9,13 +9,13 @@ from __future__ import annotations
 import logging
 import re
 
-from app.domain.interfaces import RuleRepositoryProtocol
+from app.domain.interfaces import PipelineStepProtocol, RuleRepositoryProtocol
 from app.domain.models import ErroDiagnosticoItem, ExecutionContext
 
 logger = logging.getLogger("setic.engine.dynamic")
 
 
-class DynamicTierStep:
+class DynamicTierStep(PipelineStepProtocol):
     """Etapa que aplica as regras ativas dinâmicas providas pelo RuleRepository."""
 
     def __init__(self, rule_repo: RuleRepositoryProtocol) -> None:

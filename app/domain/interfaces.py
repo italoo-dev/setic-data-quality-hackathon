@@ -6,13 +6,14 @@ persistência e etapas orquestradas do pipeline de execução.
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from app.database import RegistroAuditoria, RegraValidacao
 from app.domain.models import ErroDiagnosticoItem, ExecutionContext
 from app.schemas import MetricasOperacionaisCAGD
 
 
+@runtime_checkable
 class BaseValidatorProtocol(Protocol):
     """Contrato que todo validador concreto de campo deve implementar (Strategy Pattern)."""
 
@@ -33,6 +34,7 @@ class BaseValidatorProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class PipelineStepProtocol(Protocol):
     """Contrato de uma etapa executável dentro do ValidationPipeline."""
 
@@ -41,6 +43,7 @@ class PipelineStepProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class AuditRepositoryProtocol(Protocol):
     """Contrato de persistência e telemetria operacional de auditoria."""
 
@@ -72,6 +75,7 @@ class AuditRepositoryProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class RuleRepositoryProtocol(Protocol):
     """Contrato de persistência e gestão de regras dinâmicas de validação."""
 

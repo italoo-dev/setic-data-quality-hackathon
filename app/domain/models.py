@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -17,11 +16,11 @@ class ErroDiagnosticoItem:
 
     campo: str
     regra_violada: str
-    valor_rejeitado: Any
+    valor_rejeitado: object
     formato_esperado: str
     mensagem: str
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Converte o erro para dicionário serializável."""
         return asdict(self)
 
@@ -31,11 +30,11 @@ class ResultadoValidacao:
     """Resultado detalhado da validação atômica de um campo."""
 
     valido: bool
-    valor_normalizado: Any = None
+    valor_normalizado: object = None
     mensagem_transformacao: str | None = None
     campo: str = ""
     regra_violada: str = ""
-    valor_rejeitado: Any = None
+    valor_rejeitado: object = None
     formato_esperado: str = ""
     mensagem_erro: str = ""
 
@@ -46,8 +45,8 @@ class ExecutionContext:
 
     sistema_origem: str
     protocolo: str
-    dados_brutos: dict[str, Any]
-    dados_normalizados: dict[str, Any] = field(default_factory=dict)
+    dados_brutos: dict[str, object]
+    dados_normalizados: dict[str, object] = field(default_factory=dict)
     erros: list[ErroDiagnosticoItem] = field(default_factory=list)
     transformacoes: list[str] = field(default_factory=list)
     inicio_tempo: float = field(default_factory=time.perf_counter)
@@ -75,12 +74,12 @@ class ResultadoMotor:
     protocolo: str
     status_http: int
     sistema_origem: str
-    dados_normalizados: dict[str, Any] | None
+    dados_normalizados: dict[str, object] | None
     erros: list[ErroDiagnosticoItem]
     transformacoes: list[str]
     tempo_processamento_ms: float
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Converte o resultado consolidado para dicionário serializável."""
         return {
             "sucesso": self.sucesso,

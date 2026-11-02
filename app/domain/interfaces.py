@@ -6,9 +6,11 @@ persistência e etapas orquestradas do pipeline de execução.
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Protocol
 
+from app.database import RegistroAuditoria, RegraValidacao
 from app.domain.models import ErroDiagnosticoItem, ExecutionContext
+from app.schemas import MetricasOperacionaisCAGD
 
 
 class BaseValidatorProtocol(Protocol):
@@ -17,13 +19,13 @@ class BaseValidatorProtocol(Protocol):
     def validate_and_normalize(
         self,
         field_name: str,
-        value: Any,
+        value: object,
         context: ExecutionContext,
-    ) -> tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+    ) -> tuple[object, list[ErroDiagnosticoItem], list[str]]:
         """Executa a validação e normalização do campo.
 
         Retorna:
-            tuple[Any, list[ErroDiagnosticoItem], list[str]]:
+            tuple[object, list[ErroDiagnosticoItem], list[str]]:
                 - valor normalizado (ou o original caso haja falha)
                 - lista de erros diagnósticos detectados
                 - lista de mensagens descritivas das transformações realizadas
@@ -48,15 +50,15 @@ class AuditRepositoryProtocol(Protocol):
         sistema_origem: str,
         sucesso: bool,
         status_http: int,
-        dados_entrada: dict[str, Any],
-        dados_normalizados: dict[str, Any] | None,
-        erros: list[dict[str, Any]] | None,
+        dados_entrada: dict[str, object],
+        dados_normalizados: dict[str, object] | None,
+        erros: list[dict[str, object]] | None,
         tempo_processamento_ms: float,
-    ) -> Any:
+    ) -> RegistroAuditoria:
         """Persiste atomicamente uma transação auditável."""
         ...
 
-    def obter_metricas_cagd(self) -> dict[str, Any]:
+    def obter_metricas_cagd(self) -> MetricasOperacionaisCAGD:
         """Calcula os indicadores operacionais agregados para a CAGD."""
         ...
 
@@ -65,7 +67,7 @@ class AuditRepositoryProtocol(Protocol):
         sistema_origem: str | None = None,
         sucesso: bool | None = None,
         limite: int = 50,
-    ) -> list[Any]:
+    ) -> list[RegistroAuditoria]:
         """Recupera registros históricos ordenados decrescentemente."""
         ...
 
@@ -73,30 +75,34 @@ class AuditRepositoryProtocol(Protocol):
 class RuleRepositoryProtocol(Protocol):
     """Contrato de persistência e gestão de regras dinâmicas de validação."""
 
-    def listar_ativas_dinamicas(self) -> list[Any]:
+    def listar_ativas_dinamicas(self) -> list[RegraValidacao]:
         """Recupera regras ativas não imutáveis para execução no pipeline dinâmico."""
         ...
 
-    def listar_todas(self) -> list[Any]:
+    def listar_todas(
+        self,
+        campo: str | None = None,
+        apenas_ativas: bool = False,
+    ) -> list[RegraValidacao]:
         """Recupera todas as regras cadastradas (núcleo e dinâmicas)."""
         ...
 
-    def obter_por_id(self, regra_id: int) -> Any | None:
+    def obter_por_id(self, regra_id: int) -> RegraValidacao | None:
         """Recupera uma regra específica pelo seu identificador primário."""
         ...
 
-    def criar(self, dados: dict[str, Any]) -> Any:
+    def criar(self, dados: dict[str, object]) -> RegraValidacao:
         """Cadastra uma nova regra dinâmica."""
         ...
 
-    def atualizar(self, regra: Any, dados: dict[str, Any]) -> Any:
+    def atualizar(self, regra: RegraValidacao, dados: dict[str, object]) -> RegraValidacao:
         """Atualiza atributos de uma regra existente."""
         ...
 
-    def excluir(self, regra: Any) -> None:
+    def excluir(self, regra: RegraValidacao) -> None:
         """Remove uma regra dinâmica."""
         ...
 
-    def alternar_status(self, regra: Any) -> Any:
+    def alternar_status(self, regra: RegraValidacao) -> RegraValidacao:
         """Alterna a flag ativo (True/False) de uma regra."""
         ...

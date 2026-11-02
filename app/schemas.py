@@ -11,7 +11,6 @@ Define as estruturas de:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -43,7 +42,7 @@ class RequisicaoValidacao(BaseModel):
         description="Identificador corporativo do sistema emissor da requisição",
         examples=["SISTEMA_RH_ESTADUAL", "PORTAL_CIDADAO_RO", "SEFIN_CADASTRO"],
     )
-    dados: dict[str, Any] = Field(
+    dados: dict[str, object] = Field(
         ...,
         description="Dicionário chave-valor com os dados brutos a serem analisados, normalizados ou bloqueados",
     )
@@ -66,7 +65,7 @@ class ErroDiagnosticoDetalhe(BaseModel):
             "MUNICIPIO_IBGE_NAO_ENCONTRADO",
         ],
     )
-    valor_rejeitado: Any = Field(
+    valor_rejeitado: object = Field(
         ...,
         description="Valor original submetido que foi rejeitado pelo motor de qualidade",
     )
@@ -99,7 +98,7 @@ class RespostaNormalizada(BaseModel):
         ...,
         description="Sistema de origem informado na requisição",
     )
-    dados_normalizados: dict[str, Any] = Field(
+    dados_normalizados: dict[str, object] = Field(
         ...,
         description="Carga de dados higienizada, canônica e pronta para persistência segura",
     )

@@ -28,6 +28,10 @@ while _FRONTEND_DIR in sys.path:
 if _ROOT_DIR not in sys.path:
     sys.path.insert(0, _ROOT_DIR)
 
+from backend.domain.masking import (  # noqa: E402
+    mascarar_dados,
+    mascarar_erros,
+)
 from backend.schemas import (  # noqa: E402
     RegraValidacaoAtualizacao,
     RegraValidacaoCriacao,
@@ -882,14 +886,22 @@ elif menu_selecionado == "📜 Trilha de Auditoria e Telemetria":
         if registro_sel:
             col_in, col_out = st.columns(2)
             with col_in:
-                st.write("**Payload de Entrada Recebido:**")
-                st.json(registro_sel.get("dados_entrada") or {})
+                st.write("**Payload de Entrada Recebido (Mascarado):**")
+                dados_in = registro_sel.get("dados_entrada")
+                st.json(mascarar_dados(dados_in if isinstance(dados_in, dict) else {}))
             with col_out:
                 if registro_sel.get("sucesso"):
-                    st.write("**Dados Normalizados Persistidos:**")
-                    st.json(registro_sel.get("dados_normalizados") or {})
+                    st.write("**Dados Normalizados Persistidos (Mascarados):**")
+                    dados_out = registro_sel.get("dados_normalizados")
+                    st.json(mascarar_dados(dados_out if isinstance(dados_out, dict) else {}))
                 else:
                     st.write("**Erros Diagnósticos que Causaram o Bloqueio:**")
-                    st.json(registro_sel.get("erros_detectados") or {})
+                    dados_err = registro_sel.get("erros_detectados")
+                    erros_audit = (
+                        [e for e in dados_err if isinstance(e, dict)]
+                        if isinstance(dados_err, list)
+                        else None
+                    )
+                    st.json(mascarar_erros(erros_audit) if erros_audit is not None else {})
     else:
         st.info("Nenhum registro de auditoria encontrado para os filtros selecionados.")

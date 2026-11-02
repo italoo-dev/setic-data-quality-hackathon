@@ -23,6 +23,7 @@ class FieldGroup:
     validator: BaseValidator
     aliases: tuple[str, ...] = ()
     aux_fields: tuple[str, ...] = ()
+    sensivel: bool = False
 
     @property
     def all_aliases(self) -> tuple[str, ...]:
@@ -65,6 +66,7 @@ class BiDict:
         validator: BaseValidator,
         aliases: Iterable[str] = (),
         aux_fields: Iterable[str] = (),
+        sensivel: bool = False,
     ) -> FieldGroup:
         """Registra um grupo canônico com aliases e mapeamento bidirecional O(1)."""
         alias_tuple = tuple(aliases)
@@ -74,6 +76,7 @@ class BiDict:
             validator=validator,
             aliases=alias_tuple,
             aux_fields=aux_tuple,
+            sensivel=sensivel,
         )
 
         self._canonical_to_group[canonical] = group
@@ -99,6 +102,7 @@ class BiDict:
             validator=old_group.validator,
             aliases=new_aliases,
             aux_fields=old_group.aux_fields,
+            sensivel=old_group.sensivel,
         )
 
         self._canonical_to_group[canonic] = new_group
@@ -135,6 +139,16 @@ class BiDict:
     def key_to_group(self) -> dict[str, FieldGroup]:
         """Acesso ao mapeamento chave -> grupo."""
         return self._key_to_group
+
+    @property
+    def campos_sensiveis(self) -> frozenset[str]:
+        """Retorna o conjunto imutável de todas as chaves e aliases de grupos marcados como sensíveis."""
+        return frozenset(
+            k
+            for grupo in self._canonical_to_group.values()
+            if grupo.sensivel
+            for k in grupo.all_keys
+        )
 
     # Propriedades tipadas para acesso direto (ex: map.municipio.keys())
     @property

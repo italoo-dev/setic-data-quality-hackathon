@@ -44,10 +44,11 @@ jobs:
       - name: Run Test Suite with Coverage
         run: |
           nix develop --command bash -c "
+            uv sync --extra dev
             export DATABASE_URL='sqlite:///:memory:'
-            coverage run -m pytest backend/tests frontend/tests -v
-            coverage report
-            coverage xml -o coverage.xml
+            uv run coverage run -m pytest backend/tests frontend/tests -v
+            uv run coverage report
+            uv run coverage xml -o coverage.xml
           "
 
       - name: Upload Coverage Artifact

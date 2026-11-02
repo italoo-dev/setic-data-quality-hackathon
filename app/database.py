@@ -10,7 +10,6 @@ from __future__ import annotations
 import os
 from collections.abc import Generator
 from datetime import UTC, datetime
-from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -23,7 +22,7 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 # Resolução da URL de Conexão com suporte a fallback de contingência
@@ -89,7 +88,7 @@ class RegraValidacao(Base):
         nullable=False,
     )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Serializa o modelo para dicionário."""
         return {
             "id": self.id,
@@ -122,9 +121,9 @@ class RegistroAuditoria(Base):
     sistema_origem: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     sucesso: Mapped[bool] = mapped_column(Boolean, nullable=False, index=True)
     status_http: Mapped[int] = mapped_column(Integer, nullable=False)
-    dados_entrada: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    dados_normalizados: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
-    erros_detectados: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    dados_entrada: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    dados_normalizados: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    erros_detectados: Mapped[list[dict[str, object]] | None] = mapped_column(JSON, nullable=True)
     quantidade_erros: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     tempo_processamento_ms: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     criado_em: Mapped[datetime] = mapped_column(
@@ -134,7 +133,7 @@ class RegistroAuditoria(Base):
         index=True,
     )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Serializa o registro de auditoria para dicionário."""
         return {
             "id": self.id,
@@ -156,7 +155,7 @@ Index("ix_auditoria_sistema_sucesso", RegistroAuditoria.sistema_origem, Registro
 Index("ix_auditoria_criado_sucesso", RegistroAuditoria.criado_em, RegistroAuditoria.sucesso)
 
 
-def get_db() -> Generator[Any, None, None]:
+def get_db() -> Generator[Session, None, None]:
     """Dependency injection generator para sessões do banco de dados no FastAPI."""
     db = SessionLocal()
     try:
@@ -165,7 +164,7 @@ def get_db() -> Generator[Any, None, None]:
         db.close()
 
 
-def popular_regras_iniciais(db: Any) -> None:
+def popular_regras_iniciais(db: Session) -> None:
     """Popula regras imutáveis de núcleo e regras dinâmicas de demonstração."""
     regras_iniciais = [
         # Regras de Núcleo (Imutáveis)

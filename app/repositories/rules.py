@@ -6,8 +6,6 @@ garantindo controle sobre regras imutáveis de núcleo e regras dinâmicas da CA
 
 from __future__ import annotations
 
-from typing import Any
-
 from sqlalchemy.orm import Session
 
 from app.database import RegraValidacao
@@ -51,15 +49,17 @@ class RuleRepository:
         """Busca uma regra pelo identificador único."""
         return self.db.query(RegraValidacao).filter(RegraValidacao.id == regra_id).first()
 
-    def criar(self, dados: dict[str, Any]) -> RegraValidacao:
+    def criar(self, dados: dict[str, object]) -> RegraValidacao:
         """Cria e persiste uma nova regra dinâmica."""
         regra = RegraValidacao(
-            campo=dados["campo"].strip().lower(),
-            nome_regra=dados["nome_regra"].strip(),
-            descricao=dados.get("descricao"),
-            padrao_regex=dados.get("padrao_regex"),
-            mensagem_erro=dados["mensagem_erro"].strip(),
-            formato_esperado=dados["formato_esperado"].strip(),
+            campo=str(dados["campo"]).strip().lower(),
+            nome_regra=str(dados["nome_regra"]).strip(),
+            descricao=str(dados["descricao"]) if dados.get("descricao") is not None else None,
+            padrao_regex=str(dados["padrao_regex"])
+            if dados.get("padrao_regex") is not None
+            else None,
+            mensagem_erro=str(dados["mensagem_erro"]).strip(),
+            formato_esperado=str(dados["formato_esperado"]).strip(),
             obrigatorio=bool(dados.get("obrigatorio", False)),
             ativo=bool(dados.get("ativo", True)),
             eh_imutavel=False,
@@ -69,7 +69,7 @@ class RuleRepository:
         self.db.refresh(regra)
         return regra
 
-    def atualizar(self, regra: RegraValidacao, dados: dict[str, Any]) -> RegraValidacao:
+    def atualizar(self, regra: RegraValidacao, dados: dict[str, object]) -> RegraValidacao:
         """Atualiza campos permitidos de uma regra existente."""
         for chave, valor in dados.items():
             if hasattr(regra, chave) and valor is not None:

@@ -7,12 +7,12 @@ cálculo de KPIs e recuperação da trilha analítica para a CAGD.
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import RegistroAuditoria
+from app.schemas import ItemContagem, MetricasOperacionaisCAGD, VolumeSistemaItem
 
 
 class AuditRepository:
@@ -27,9 +27,9 @@ class AuditRepository:
         sistema_origem: str,
         sucesso: bool,
         status_http: int,
-        dados_entrada: dict[str, Any],
-        dados_normalizados: dict[str, Any] | None,
-        erros: list[dict[str, Any]] | None,
+        dados_entrada: dict[str, object],
+        dados_normalizados: dict[str, object] | None,
+        erros: list[dict[str, object]] | None,
         tempo_processamento_ms: float,
     ) -> RegistroAuditoria:
         """Persiste um registro de auditoria na base de dados de forma transacional."""
@@ -48,7 +48,7 @@ class AuditRepository:
         self.db.commit()
         return registro
 
-    def obter_metricas_cagd(self) -> dict[str, Any]:
+    def obter_metricas_cagd(self) -> MetricasOperacionaisCAGD:
         """Calcula os indicadores operacionais agregados para o painel de gestão."""
         total = self.db.query(RegistroAuditoria).count()
         total_sucessos = (
@@ -79,20 +79,20 @@ class AuditRepository:
             .all()
         )
 
-        volume_sistemas = []
+        volume_sistemas: list[VolumeSistemaItem] = []
         for s in sistemas_raw:
             tot_s = int(s.total)
             apr_s = int(s.aprovados or 0)
             rej_s = int(s.rejeitados or 0)
             taxa_s = round((rej_s / tot_s * 100), 2) if tot_s > 0 else 0.0
             volume_sistemas.append(
-                {
-                    "sistema_origem": s.sistema_origem,
-                    "total": tot_s,
-                    "aprovados": apr_s,
-                    "rejeitados": rej_s,
-                    "taxa_rejeicao_percentual": taxa_s,
-                }
+                VolumeSistemaItem(
+                    sistema_origem=str(s.sistema_origem),
+                    total=tot_s,
+                    aprovados=apr_s,
+                    rejeitados=rej_s,
+                    taxa_rejeicao_percentual=taxa_s,
+                )
             )
 
         # Extração das falhas mais frequentes para rankings
@@ -116,28 +116,30 @@ class AuditRepository:
                     if isinstance(e, dict):
                         c = e.get("campo")
                         r = e.get("regra_violada")
-                        if c:
+                        if isinstance(c, str):
                             contador_campos[c] += 1
-                        if r:
+                        if isinstance(r, str):
                             contador_regras[r] += 1
 
         top_campos = [
-            {"nome": campo, "quantidade": qtd} for campo, qtd in contador_campos.most_common(10)
+            ItemContagem(nome=campo, quantidade=qtd)
+            for campo, qtd in contador_campos.most_common(10)
         ]
         top_regras = [
-            {"nome": regra, "quantidade": qtd} for regra, qtd in contador_regras.most_common(10)
+            ItemContagem(nome=regra, quantidade=qtd)
+            for regra, qtd in contador_regras.most_common(10)
         ]
 
-        return {
-            "total_requisicoes": total,
-            "total_sucessos": total_sucessos,
-            "total_bloqueios": total_bloqueios,
-            "taxa_rejeicao_percentual": taxa_rejeicao,
-            "tempo_medio_processamento_ms": tempo_medio,
-            "volume_por_sistema": volume_sistemas,
-            "top_campos_rejeitados": top_campos,
-            "top_regras_violadas": top_regras,
-        }
+        return MetricasOperacionaisCAGD(
+            total_requisicoes=total,
+            total_sucessos=total_sucessos,
+            total_bloqueios=total_bloqueios,
+            taxa_rejeicao_percentual=taxa_rejeicao,
+            tempo_medio_processamento_ms=tempo_medio,
+            volume_por_sistema=volume_sistemas,
+            top_campos_rejeitados=top_campos,
+            top_regras_violadas=top_regras,
+        )
 
     def listar_registros(
         self,

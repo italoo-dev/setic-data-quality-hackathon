@@ -888,6 +888,15 @@ wheels = [
 ]
 
 [[package]]
+name = "phonenumbers"
+version = "9.0.42"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ea/e0/b6c30d6bb4255fc999f7fe3b7f7821dbe7a92272768f3b57b6939f4eedcf/phonenumbers-9.0.42.tar.gz", hash = "sha256:83ddc20edea93814f5bb2ee8d365b3ef64fa274c8a4f6d06bd8b2c7996030564", size = 2312652, upload-time = "2026-10-27T07:49:34.218Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/92/517a82af51c58601d3e9c2e5757587f1d8201143ce98ac62f262d47f3355/phonenumbers-9.0.42-py2.py3-none-any.whl", hash = "sha256:321c92d9734bfb4adc64575f940da26463f09fc79ac692b43a35f9306e4ecc7d", size = 2595813, upload-time = "2026-10-27T07:49:32.576Z" },
+]
+
+[[package]]
 name = "pillow"
 version = "13.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1770,6 +1779,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pandas" },
+    { name = "phonenumbers" },
     { name = "plotly" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -1780,7 +1790,6 @@ dependencies = [
     { name = "streamlit" },
     { name = "unidecode" },
     { name = "uvicorn", extra = ["standard"] },
-    { name = "validate-docbr" },
 ]
 
 [package.optional-dependencies]
@@ -1798,6 +1807,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "pandas", specifier = ">=2.2.0" },
+    { name = "phonenumbers", specifier = ">=8.13.0" },
     { name = "plotly", specifier = ">=5.24.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" },
     { name = "pydantic", specifier = ">=2.9.0" },
@@ -1812,7 +1822,6 @@ requires-dist = [
     { name = "streamlit", specifier = ">=1.39.0" },
     { name = "unidecode", specifier = ">=1.3.8" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
-    { name = "validate-docbr", specifier = ">=1.10.0" },
 ]
 provides-extras = ["dev"]
 
@@ -2064,15 +2073,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/83/f421a077712c1e87603bfec62744c3cd3a2f4b47378025db3d740df9af0d/uvloop-0.23.0-cp315-cp315t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:12634f15e6625f78b3f2922f91404c4d7173487eba11746764153f556e9852dc", size = 4661763, upload-time = "2026-10-01T03:16:38.719Z" },
     { url = "https://files.pythonhosted.org/packages/f5/62/25dcaa6b7e7b48f82ce633854ce96597ab768f9650931f4f86c572de392c/uvloop-0.23.0-cp315-cp315t-musllinux_1_2_aarch64.whl", hash = "sha256:378188efbb1524f2219d05246a3e1e5907217848d2882144dff59585f1b81d55", size = 4421324, upload-time = "2026-10-01T03:16:40.488Z" },
     { url = "https://files.pythonhosted.org/packages/05/46/04628239b43dcef703af314202a3307d6060918e2d76aa86c5b1188f5551/uvloop-0.23.0-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:4b8e207c67d207a8608fec57e116511030af3495dc0109b8c333cf9cb412b16f", size = 4462501, upload-time = "2026-10-01T03:16:42.359Z" },
-]
-
-[[package]]
-name = "validate-docbr"
-version = "2.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ba/ce/bad0408965025512cb88f7c6b07954fe0aac86fd1bb63504ec69a2035cfc/validate_docbr-2.0.1.tar.gz", hash = "sha256:d1e20fd1a283bd9ebfb10e6ad89046693d7dd01fb68906e4119f49074cfa1f6e", size = 48635, upload-time = "2026-10-01T14:14:11.731Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/22/3a51d0fe069dd667da25e6f19d98a3b59db5636980087e38dbac7e5a2916/validate_docbr-2.0.1-py3-none-any.whl", hash = "sha256:ea81a6a5b1bfe63c9374c4bfd54131211e1d6682de6da88af4ee6f1d8a6def48", size = 17138, upload-time = "2026-10-01T14:14:10.87Z" },
 ]
 
 [[package]]

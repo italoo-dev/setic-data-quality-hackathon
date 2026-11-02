@@ -1,7 +1,7 @@
-"""Testes unitários para o CoreTierStep com MultiDict de alta performance.
+"""Testes unitários para o CoreTierStep com bidict e MultiDict.
 
-Garante o funcionamento de consultas em tempo O(1), suporte a aliases de sistemas legados
-e integridade de normalização e diagnósticos de erro.
+Garante o funcionamento de consultas O(1) diretas por entidade (ex: map.municipio.keys()),
+suporte a aliases de sistemas legados e integridade de normalização e diagnósticos de erro.
 """
 
 from __future__ import annotations
@@ -11,36 +11,83 @@ import pytest
 from multidict import MultiDict
 
 from backend.domain.models import ErroDiagnosticoItem, ExecutionContext
+from backend.engine.bidict import BiDict
 from backend.engine.core_tier import CoreTierStep
-from backend.validators.address import CEPValidator
 from backend.validators.base import BaseValidator
-from backend.validators.cpf import CPFValidator
 
 
-def test_core_tier_multidict_lookup():
-    """Valida o mapeamento N:1 de chaves e o uso de MultiDict C-accelerated no CoreTierStep."""
+def test_core_tier_bidict_structure():
+    """Valida acesso direto por entidade (ex: map.municipio.keys()) e MultiDict C-accelerated."""
     step = CoreTierStep()
 
-    # 1. Estrutura de aliases em C (MultiDict)
-    assert isinstance(step.aliases_by_canonical, MultiDict)
-    aliases_cep = step.get_aliases("cep")
-    assert "cep" in aliases_cep
-    assert "codigo_postal" in aliases_cep
-    assert "postal_code" in aliases_cep
+    # Valida tipo BiDict
+    assert isinstance(step.map, BiDict)
 
-    # 2. Resolução direta O(1) de múltiplos aliases para a mesma instância de validador
-    assert isinstance(step.validators["cep"], CEPValidator)
-    assert step.validators["codigo_postal"] is step.validators["cep"]
-    assert step.validators["postal_code"] is step.validators["cep"]
-    assert isinstance(step.validators["cpf"], CPFValidator)
-    assert step.validators["num_cpf"] is step.validators["cpf"]
+    # 1. Acesso direto por entidade eliminando duplicação de tuplas de chaves
+    assert step.map.municipio.keys() == (
+        "municipio",
+        "cidade",
+        "nome_municipio",
+        "codigo_ibge",
+        "cod_ibge",
+    )
+    assert step.map.municipio.aux_fields == ("codigo_ibge", "cod_ibge")
+    assert step.map.municipio.aliases == ("cidade", "nome_municipio")
+    assert step.map.municipio.all_aliases == (
+        "cidade",
+        "nome_municipio",
+        "codigo_ibge",
+        "cod_ibge",
+    )
+    assert step.map.cep.keys() == (
+        "cep",
+        "codigo_postal",
+        "postal_code",
+        "end_cep",
+        "cep_residencia",
+        "cep_estabelecimento",
+    )
+    assert step.map.cpf.canonical == "cpf"
 
-    # 3. Resolução O(1) do campo canônico (tanto por string quanto por instância do validador)
-    assert step.get_canonical_field(step.validators["cep"]) == "cep"
-    assert step.get_canonical_field(step.validators["cpf"]) == "cpf"
+    # 2. MultiDict C-accelerated subjacente
+    assert isinstance(step.map.multidict, MultiDict)
+    assert list(step.map.multidict.getall("municipio")) == [
+        "cidade",
+        "nome_municipio",
+        "codigo_ibge",
+        "cod_ibge",
+    ]
+
+    # 3. Resolução O(1) de qualquer chave para seu FieldGroup
+    assert step.map["codigo_postal"] is step.map.cep
+    assert step.map["cidade"] is step.map.municipio
+    assert step.map["num_cpf"] is step.map.cpf
+    assert "postal_code" in step.map
+    assert "inexistente" not in step.map
+
+    # 4. Resolução de campos canônicos e aliases
+    assert step.get_canonical_field(step.cep_validator) == "cep"
     assert step.get_canonical_field("codigo_postal") == "cep"
-    assert step.get_canonical_field("num_cpf") == "cpf"
-    assert step.get_canonical_field("inexistente") is None
+    assert "codigo_postal" in step.get_aliases("cep")
+    assert "cidade" in step.get_aliases(step.ibge_validator)
+
+
+def test_field_group_first_present():
+    """Verifica priorização do primeiro campo presente conforme ordem canônica."""
+    step = CoreTierStep()
+    muni_grupo = step.map.municipio
+
+    # Prioriza 'municipio' se ambos estiverem presentes
+    assert (
+        muni_grupo.first_present({"codigo_ibge": "1100205", "municipio": "Porto Velho"})
+        == "municipio"
+    )
+    # Se apenas 'cidade' estiver presente
+    assert muni_grupo.first_present({"cidade": "p. velho", "uf": "RO"}) == "cidade"
+    # Se apenas 'codigo_ibge' estiver presente
+    assert muni_grupo.first_present({"codigo_ibge": "1100205"}) == "codigo_ibge"
+    # Se nenhum campo estiver presente
+    assert muni_grupo.first_present({"outro": "valor"}) is None
 
 
 def test_core_tier_legacy_cep_aliases_and_canonical_propagation():
@@ -131,7 +178,7 @@ def test_core_tier_dynamic_alias_registration():
 
     # Adiciona novo alias legado para o CEP canônico existente
     step.add_alias("cep_entrega", "cep")
-    assert step.validators["cep_entrega"] is step.validators["cep"]
+    assert step.map["cep_entrega"].validator is step.map["cep"].validator
 
     ctx_alias = ExecutionContext(
         sistema_origem="TESTE_ALIAS",

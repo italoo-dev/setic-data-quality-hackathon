@@ -1,18 +1,17 @@
 """Etapa do Núcleo Canônico Imutável do Pipeline de Validação (Core Tier Step).
 
 Coordena as estratégias canônicas de validação e normalização permissiva
-utilizando mapeamento indexado O(1) e a biblioteca de alta performance 'multidict'
-(extensão em C) para gestão e recuperação de aliases de campos legados.
+utilizando a estrutura relacional bidict baseada em MultiDict (C),
+eliminando repetição de código e permitindo consultas diretas por entidade (ex: map.municipio.keys()).
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 
-from multidict import MultiDict
-
 from backend.domain.interfaces import PipelineStepProtocol
 from backend.domain.models import ExecutionContext
+from backend.engine.bidict import BiDict, FieldGroup
 from backend.validators.address import CEPValidator
 from backend.validators.base import BaseValidator
 from backend.validators.cnpj import CNPJValidator
@@ -28,18 +27,24 @@ class CoreTierStep(PipelineStepProtocol):
 
     def __init__(self) -> None:
         self.ibge_validator = IBGEMunicipioValidator()
-        self._validators: dict[str, BaseValidator] = {}
-        self._canonical: dict[str, str] = {}
-        self._canonical_by_validator: dict[BaseValidator, str] = {}
-        self._aliases_by_canonical: MultiDict[str] = MultiDict()
+        self.cpf_validator = CPFValidator()
+        self.cnpj_validator = CNPJValidator()
+        self.phone_validator = PhoneValidator()
+        self.email_validator = EmailValidator()
+        self.pis_validator = PISValidator()
+        self.cep_validator = CEPValidator()
+        self.datetime_validator = DateTimeValidator()
+
+        # Estrutura relacional bidirecional O(1) com suporte a MultiDict C-accelerated
+        self.map = BiDict()
 
         self._registrar_padroes()
 
     def _registrar_padroes(self) -> None:
-        regras: tuple[tuple[BaseValidator, str, tuple[str, ...]], ...] = (
+        padroes: list[tuple[str, BaseValidator, tuple[str, ...], tuple[str, ...]]] = [
             (
-                CEPValidator(),
                 "cep",
+                self.cep_validator,
                 (
                     "codigo_postal",
                     "postal_code",
@@ -47,35 +52,48 @@ class CoreTierStep(PipelineStepProtocol):
                     "cep_residencia",
                     "cep_estabelecimento",
                 ),
+                (),
             ),
             (
-                CPFValidator(),
                 "cpf",
+                self.cpf_validator,
                 ("num_cpf", "numero_cpf", "documento_cpf", "cpf_cnpj"),
+                (),
             ),
             (
-                CNPJValidator(),
                 "cnpj",
+                self.cnpj_validator,
                 ("num_cnpj", "numero_cnpj", "documento_cnpj"),
+                (),
             ),
             (
-                PhoneValidator(),
                 "telefone",
-                ("telefone_contato", "celular", "fone", "tel", "telefone_fixo", "telefone_celular"),
+                self.phone_validator,
+                (
+                    "telefone_contato",
+                    "celular",
+                    "fone",
+                    "tel",
+                    "telefone_fixo",
+                    "telefone_celular",
+                ),
+                (),
             ),
             (
-                EmailValidator(),
                 "email",
+                self.email_validator,
                 ("correio_eletronico", "e_mail", "email_contato", "email_funcional"),
+                (),
             ),
             (
-                PISValidator(),
                 "pis",
+                self.pis_validator,
                 ("pis_pasep", "pasep", "nis", "numero_pis"),
+                (),
             ),
             (
-                DateTimeValidator(),
                 "data",
+                self.datetime_validator,
                 (
                     "data_nascimento",
                     "data_admissao",
@@ -84,31 +102,22 @@ class CoreTierStep(PipelineStepProtocol):
                     "data_expedicao",
                     "data_registro",
                 ),
+                (),
             ),
             (
-                self.ibge_validator,
                 "municipio",
-                ("cidade", "nome_municipio", "codigo_ibge", "cod_ibge"),
+                self.ibge_validator,
+                ("cidade", "nome_municipio"),
+                ("codigo_ibge", "cod_ibge"),
             ),
-        )
-        for validador, canonic, aliases in regras:
-            self.register(canonic, validador, aliases)
-
-    def register(
-        self,
-        canonical: str,
-        validator: BaseValidator,
-        aliases: Iterable[str] = (),
-    ) -> None:
-        """Mapeia um campo canônico e seus aliases legados para um único validador em O(1)."""
-        self._validators[canonical] = validator
-        self._canonical[canonical] = canonical
-        self._canonical_by_validator[validator] = canonical
-
-        for alias in aliases:
-            self._validators[alias] = validator
-            self._canonical[alias] = canonical
-            self._aliases_by_canonical.add(canonical, alias)
+        ]
+        for canonical, validator, aliases, aux_fields in padroes:
+            self.map.add(
+                canonical=canonical,
+                validator=validator,
+                aliases=aliases,
+                aux_fields=aux_fields,
+            )
 
     def register_validator(
         self,
@@ -117,68 +126,47 @@ class CoreTierStep(PipelineStepProtocol):
         aliases: Iterable[str] | None = None,
     ) -> None:
         """Registra uma nova estratégia de validação para um campo e aliases opcionais (OCP)."""
-        self.register(field_name, validator, aliases or ())
+        self.map.add(canonical=field_name, validator=validator, aliases=aliases or ())
 
     def add_alias(self, alias: str, target: str) -> None:
-        """Adiciona um novo alias de campo legado apontando para um campo canônico existente em O(1)."""
-        if target not in self._validators:
-            raise KeyError(f"Campo '{target}' não está registrado no Core Tier.")
-        validator = self._validators[target]
-        canonic = self._canonical[target]
-        self._validators[alias] = validator
-        self._canonical[alias] = canonic
-        self._aliases_by_canonical.add(canonic, alias)
-
-    @property
-    def validators(self) -> dict[str, BaseValidator]:
-        """Acesso direto ao dicionário de validadores por campo/alias."""
-        return self._validators
-
-    @property
-    def aliases_by_canonical(self) -> MultiDict[str]:
-        """Acesso à estrutura MultiDict C-accelerated de aliases por campo canônico."""
-        return self._aliases_by_canonical
+        """Adiciona um novo alias de campo legado apontando para um campo existente em O(1)."""
+        self.map.add_alias(alias=alias, target=target)
 
     def get_canonical_field(self, field_or_validator: str | BaseValidator) -> str | None:
-        """Retorna o campo canônico em tempo O(1) a partir do campo ou do validador."""
+        """Retorna o campo canônico a partir do campo ou do validador em tempo O(1)."""
         if isinstance(field_or_validator, str):
-            return self._canonical.get(field_or_validator)
-        return self._canonical_by_validator.get(field_or_validator)
+            group = self.map.get(field_or_validator)
+            return group.canonical if group else None
+        group = self.map.get_by_validator(field_or_validator)
+        return group.canonical if group else None
 
     def get_aliases(self, field_or_validator: str | BaseValidator) -> list[str]:
         """Retorna todas as chaves e aliases associados em tempo O(1)."""
-        canonic = self.get_canonical_field(field_or_validator)
-        if not canonic:
-            return []
-        aliases = list(self._aliases_by_canonical.getall(canonic, ()))
-        if canonic not in aliases:
-            aliases.insert(0, canonic)
-        return aliases
+        if isinstance(field_or_validator, str):
+            group = self.map.get(field_or_validator)
+            return list(group.keys()) if group else []
+        group = self.map.get_by_validator(field_or_validator)
+        return list(group.keys()) if group else []
 
     def process(self, context: ExecutionContext) -> ExecutionContext:
         """Processa todos os campos de núcleo presentes na carga de dados brutos."""
         dados = context.dados_brutos
 
-        # 1. Agrupa os campos presentes na entrada pelo seu validador correspondente em O(1)
-        por_validador: dict[BaseValidator, list[str]] = {}
+        # 1. Agrupa os campos presentes na entrada por grupo canônico em O(1)
+        grupos_presentes: dict[FieldGroup, list[str]] = {}
         for campo in dados:
-            if dados[campo] is not None and campo in self._validators:
-                validador = self._validators[campo]
-                por_validador.setdefault(validador, []).append(campo)
+            if dados[campo] is not None and campo in self.map:
+                grupo = self.map[campo]
+                grupos_presentes.setdefault(grupo, []).append(campo)
 
-        # 2. Processamento de Município / IBGE (resolução composta de município, UF e código IBGE)
-        if self.ibge_validator in por_validador:
-            chaves_ibge = por_validador.pop(self.ibge_validator)
-            alvo_chave = next(
-                (
-                    k
-                    for k in ("municipio", "cidade", "nome_municipio", "codigo_ibge")
-                    if k in chaves_ibge
-                ),
-                chaves_ibge[0],
-            )
+        # 2. Município / IBGE: resolução composta reutilizando o próprio grupo da entidade
+        muni_grupo = self.map.municipio
+        if muni_grupo in grupos_presentes:
+            chaves_ibge = grupos_presentes.pop(muni_grupo)
+            alvo_chave = muni_grupo.first_present(dados) or chaves_ibge[0]
             alvo_valor = dados[alvo_chave]
-            val, errs, transfs = self.ibge_validator.validate_and_normalize(
+
+            val, errs, transfs = muni_grupo.validator.validate_and_normalize(
                 alvo_chave, alvo_valor, context
             )
             if errs:
@@ -188,24 +176,24 @@ class CoreTierStep(PipelineStepProtocol):
                 if isinstance(val, dict):
                     nome_muni = str(val.get("municipio", ""))
                     for k in chaves_ibge:
-                        if k not in ("codigo_ibge", "cod_ibge"):
+                        if k not in muni_grupo.aux_fields:
                             context.dados_normalizados[k] = nome_muni
 
-        # 3. Processamento de todos os demais validadores registrados
-        for validador, campos in por_validador.items():
-            canonical_key = self._canonical_by_validator.get(validador)
+        # 3. Processamento de todos os demais grupos canônicos registrados
+        for grupo, campos in grupos_presentes.items():
+            canonic = grupo.canonical
             for campo in campos:
-                val, errs, transfs = validador.validate_and_normalize(campo, dados[campo], context)
+                val, errs, transfs = grupo.validator.validate_and_normalize(
+                    campo, dados[campo], context
+                )
                 if errs:
                     context.erros.extend(errs)
                 else:
                     context.dados_normalizados[campo] = val
                     context.transformacoes.extend(transfs)
-                    if (
-                        canonical_key
-                        and canonical_key not in context.dados_normalizados
-                        and (len(campos) == 1 or canonical_key in dados)
+                    if canonic not in context.dados_normalizados and (
+                        len(campos) == 1 or canonic in dados
                     ):
-                        context.dados_normalizados[canonical_key] = val
+                        context.dados_normalizados[canonic] = val
 
         return context

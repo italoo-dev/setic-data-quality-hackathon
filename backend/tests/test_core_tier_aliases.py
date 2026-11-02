@@ -71,6 +71,19 @@ def test_core_tier_bidict_structure():
     assert "codigo_postal" in step.get_aliases("cep")
     assert "cidade" in step.get_aliases(step.ibge_validator)
 
+    # 5. Classificação relacional de campos sensíveis (LGPD) no BiDict
+    assert "cpf" in step.campos_sensiveis
+    assert "num_cpf" in step.campos_sensiveis
+    assert "cnpj" in step.campos_sensiveis
+    assert "celular" in step.campos_sensiveis
+    assert "email" in step.campos_sensiveis
+    assert "pis" in step.campos_sensiveis
+    assert "municipio" not in step.campos_sensiveis
+    assert "cidade" not in step.campos_sensiveis
+    assert "codigo_ibge" not in step.campos_sensiveis
+    assert "cep" not in step.campos_sensiveis
+    assert "data" not in step.campos_sensiveis
+
 
 def test_field_group_first_present():
     """Verifica priorização do primeiro campo presente conforme ordem canônica."""
@@ -179,6 +192,11 @@ def test_core_tier_dynamic_alias_registration():
     # Adiciona novo alias legado para o CEP canônico existente
     step.add_alias("cep_entrega", "cep")
     assert step.map["cep_entrega"].validator is step.map["cep"].validator
+    assert "cep_entrega" not in step.campos_sensiveis
+
+    # Adiciona novo alias legado para CPF e verifica propagação em campos_sensiveis
+    step.add_alias("cpf_titular", "cpf")
+    assert "cpf_titular" in step.campos_sensiveis
 
     ctx_alias = ExecutionContext(
         sistema_origem="TESTE_ALIAS",

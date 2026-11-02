@@ -41,7 +41,7 @@ class CoreTierStep(PipelineStepProtocol):
         self._registrar_padroes()
 
     def _registrar_padroes(self) -> None:
-        padroes: list[tuple[str, BaseValidator, tuple[str, ...], tuple[str, ...]]] = [
+        padroes: list[tuple[str, BaseValidator, tuple[str, ...], tuple[str, ...], bool]] = [
             (
                 "cep",
                 self.cep_validator,
@@ -53,18 +53,21 @@ class CoreTierStep(PipelineStepProtocol):
                     "cep_estabelecimento",
                 ),
                 (),
+                False,
             ),
             (
                 "cpf",
                 self.cpf_validator,
                 ("num_cpf", "numero_cpf", "documento_cpf", "cpf_cnpj"),
                 (),
+                True,
             ),
             (
                 "cnpj",
                 self.cnpj_validator,
                 ("num_cnpj", "numero_cnpj", "documento_cnpj"),
                 (),
+                True,
             ),
             (
                 "telefone",
@@ -78,18 +81,21 @@ class CoreTierStep(PipelineStepProtocol):
                     "telefone_celular",
                 ),
                 (),
+                True,
             ),
             (
                 "email",
                 self.email_validator,
                 ("correio_eletronico", "e_mail", "email_contato", "email_funcional"),
                 (),
+                True,
             ),
             (
                 "pis",
                 self.pis_validator,
                 ("pis_pasep", "pasep", "nis", "numero_pis"),
                 (),
+                True,
             ),
             (
                 "data",
@@ -103,30 +109,46 @@ class CoreTierStep(PipelineStepProtocol):
                     "data_registro",
                 ),
                 (),
+                False,
             ),
             (
                 "municipio",
                 self.ibge_validator,
                 ("cidade", "nome_municipio"),
                 ("codigo_ibge", "cod_ibge"),
+                False,
             ),
         ]
-        for canonical, validator, aliases, aux_fields in padroes:
+        for canonical, validator, aliases, aux_fields, sensivel in padroes:
             self.map.add(
                 canonical=canonical,
                 validator=validator,
                 aliases=aliases,
                 aux_fields=aux_fields,
+                sensivel=sensivel,
             )
+
+    @property
+    def campos_sensiveis(self) -> frozenset[str]:
+        """Conjunto de campos e aliases classificados como dados sensíveis no Core Tier."""
+        return self.map.campos_sensiveis
 
     def register_validator(
         self,
         field_name: str,
         validator: BaseValidator,
         aliases: Iterable[str] | None = None,
+        aux_fields: Iterable[str] | None = None,
+        sensivel: bool = False,
     ) -> None:
         """Registra uma nova estratégia de validação para um campo e aliases opcionais (OCP)."""
-        self.map.add(canonical=field_name, validator=validator, aliases=aliases or ())
+        self.map.add(
+            canonical=field_name,
+            validator=validator,
+            aliases=aliases or (),
+            aux_fields=aux_fields or (),
+            sensivel=sensivel,
+        )
 
     def add_alias(self, alias: str, target: str) -> None:
         """Adiciona um novo alias de campo legado apontando para um campo existente em O(1)."""

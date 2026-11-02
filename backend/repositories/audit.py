@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import RegistroAuditoria
 from backend.domain.interfaces import AuditRepositoryProtocol
+from backend.domain.masking import mascarar_dados, mascarar_erros
 from backend.schemas import ItemContagem, MetricasOperacionaisCAGD, VolumeSistemaItem
 
 
@@ -33,15 +34,21 @@ class AuditRepository(AuditRepositoryProtocol):
         erros: list[dict[str, object]] | None,
         tempo_processamento_ms: float,
     ) -> RegistroAuditoria:
-        """Persiste um registro de auditoria na base de dados de forma transacional."""
+        """Persiste um registro de auditoria na base de dados com mascaramento de dados sensíveis."""
+        dados_entrada_mascarados = mascarar_dados(dados_entrada)
+        dados_normalizados_mascarados = (
+            mascarar_dados(dados_normalizados) if dados_normalizados is not None else None
+        )
+        erros_mascarados = mascarar_erros(erros)
+
         registro = RegistroAuditoria(
             protocolo=protocolo,
             sistema_origem=sistema_origem,
             sucesso=sucesso,
             status_http=status_http,
-            dados_entrada=dados_entrada,
-            dados_normalizados=dados_normalizados,
-            erros_detectados=erros,
+            dados_entrada=dados_entrada_mascarados,
+            dados_normalizados=dados_normalizados_mascarados,
+            erros_detectados=erros_mascarados,
             quantidade_erros=len(erros) if erros else 0,
             tempo_processamento_ms=round(tempo_processamento_ms, 2),
         )

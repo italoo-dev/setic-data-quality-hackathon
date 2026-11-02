@@ -47,6 +47,8 @@ dev = [
     "pyright>=1.1.385",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
+    "coverage>=7.6.0",
+    "pytest-cov>=5.0.0",
     "pre-commit>=3.5.0",
 ]
 
@@ -92,3 +94,18 @@ minversion = "8.0"
 testpaths = ["backend/tests", "frontend/tests"]
 python_files = ["test_*.py"]
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["backend", "frontend"]
+branch = true
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

@@ -26,6 +26,8 @@ build/
 # Testes e cobertura
 .pytest_cache/
 .coverage
+coverage.xml
+*.xml
 htmlcov/
 
 # Nix

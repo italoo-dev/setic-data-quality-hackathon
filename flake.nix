@@ -110,11 +110,16 @@
               echo "listen_addresses = '127.0.0.1'" >> "$PGDATA/postgresql.conf"
             fi
 
-            # 3. Inicialização do Daemon PostgreSQL
+            # 3. Inicialização do Daemon PostgreSQL com verificação de prontidão
             if ! pg_isready -h "$PGSOCKET" -p "$PGPORT" > /dev/null 2>&1; then
               echo "[DB] Iniciando serviço PostgreSQL (Porta $PGPORT)..."
               pg_ctl -D "$PGDATA" -l "$PGLOGS/postgresql.log" -o "-k $PGSOCKET -p $PGPORT" start > /dev/null 2>&1
-              sleep 1
+              for i in {1..10}; do
+                if pg_isready -h "$PGSOCKET" -p "$PGPORT" > /dev/null 2>&1; then
+                  break
+                fi
+                sleep 0.5
+              done
             fi
 
             # 4. Criação da Base de Dados caso não exista

@@ -13,77 +13,40 @@
   outputs = { self, nixpkgs, flake-utils, pyproject-nix }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          config.allowUnfree = true;
-        };
-
-        # Leitura e parsing dinâmico de pyproject.toml como Fonte Única da Verdade (Single Source of Truth)
-        pyprojectData = builtins.fromTOML (builtins.readFile ./pyproject.toml);
-        projectName = pyprojectData.project.name;
-        projectVersion = pyprojectData.project.version;
-
-        # Validação de metadados via pyproject-nix
-        pyprojectParsed = pyproject-nix.lib.project.loadPyproject {
-          projectRoot = ./.;
-        };
-
-        # Python 3.12 com ferramentas nativas
-        python = pkgs.python312;
+        pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
+        pyproject = builtins.fromTOML (builtins.readFile ./pyproject.toml);
+        _ = pyproject-nix.lib.project.loadPyproject { projectRoot = ./.; };
       in
-      {
-        # Derivação do pacote baseada no pyproject.toml
-        packages.default = pkgs.stdenv.mkDerivation {
-          pname = projectName;
-          version = projectVersion;
+      with pkgs; {
+        packages.default = stdenv.mkDerivation {
+          pname = pyproject.project.name;
+          version = pyproject.project.version;
           src = ./.;
-
-          nativeBuildInputs = [
-            python
-            pkgs.uv
-            pkgs.pkg-config
-            pkgs.gcc
-          ];
-
-          buildPhase = ''
-            echo "Construindo ${projectName} v${projectVersion} a partir do pyproject.toml"
-          '';
-
+          nativeBuildInputs = [ python312 uv pkg-config gcc ];
+          buildPhase = "true";
           installPhase = ''
-            mkdir -p $out/bin $out/lib
+            mkdir -p $out/lib
             cp -r app panel pyproject.toml $out/lib/
           '';
         };
 
-        # Shell de desenvolvimento reprodutível e simplificado
-        devShells.default = pkgs.mkShell {
-          name = "${projectName}-devshell";
-
-          buildInputs = [
-            # Runtime Python e empacotamento declarativo
-            python
-            pkgs.uv
-
-            # LSPs e Linters estáticos
-            pkgs.ruff
-            pkgs.pyright
-
-            # Compilação nativa para extensões C++
-            pkgs.gcc
-            pkgs.pkg-config
-            pkgs.zlib
-
-            # Ferramentas auxiliares
-            pkgs.git
-            pkgs.curl
+        devShells.default = mkShell {
+          name = "${pyproject.project.name}-devshell";
+          packages = [
+            python312
+            uv
+            ruff
+            pyright
+            gcc
+            pkg-config
+            zlib
+            git
+            curl
           ];
 
           shellHook = ''
             export DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/setic_qualidade"
-
-            if [ ! -d ".venv" ]; then
-              uv venv .venv
-            fi
+            [ ! -d ".venv" ] && uv venv .venv
             source .venv/bin/activate
             uv pip install -e ".[dev]" --quiet
           '';

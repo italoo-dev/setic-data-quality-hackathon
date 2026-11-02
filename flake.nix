@@ -37,6 +37,7 @@
             uv
             ruff
             pyright
+            pre-commit
             gcc
             pkg-config
             zlib
@@ -47,9 +48,14 @@
 
           shellHook = ''
             export DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/setic_qualidade"
-            [ ! -d ".venv" ] && uv venv .venv
-            source .venv/bin/activate
-            uv pip install -e ".[dev]" --quiet
+            if [ ! -f ".venv/bin/activate" ] || ! .venv/bin/python -c "import sys" 2>/dev/null; then
+              rm -rf .venv
+              uv venv .venv
+              uv pip install -e ".[dev]" --quiet
+            fi
+            export VIRTUAL_ENV="$PWD/.venv"
+            export PATH="$VIRTUAL_ENV/bin:$PATH"
+            [ -f ".pre-commit-config.yaml" ] && .venv/bin/pre-commit install >/dev/null 2>&1 || true
           '';
         };
       }

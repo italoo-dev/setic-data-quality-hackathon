@@ -106,3 +106,15 @@ class RuleRepositoryProtocol(Protocol):
     def alternar_status(self, regra: RegraValidacao) -> RegraValidacao:
         """Alterna a flag ativo (True/False) de uma regra."""
         ...
+
+    def exportar_regras(self, apenas_dinamicas: bool = True) -> list[dict[str, object]]:
+        """Recupera regras para fins de exportação e backup."""
+        ...
+
+    def importar_regras(
+        self,
+        regras: list[dict[str, object]],
+        sobrescrever: bool = False,
+    ) -> dict[str, object]:
+        """Importa em lote regras dinâmicas com opções de mesclagem."""
+        ...

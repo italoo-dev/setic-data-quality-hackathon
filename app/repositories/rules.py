@@ -90,3 +90,126 @@ class RuleRepository:
         self.db.commit()
         self.db.refresh(regra)
         return regra
+
+    def exportar_regras(self, apenas_dinamicas: bool = True) -> list[dict[str, object]]:
+        """Recupera regras para fins de exportação e backup declarativo."""
+        consulta = self.db.query(RegraValidacao)
+        if apenas_dinamicas:
+            consulta = consulta.filter(RegraValidacao.eh_imutavel == False)  # noqa: E712
+        regras = consulta.order_by(RegraValidacao.campo.asc(), RegraValidacao.id.asc()).all()
+        return [
+            {
+                "campo": r.campo,
+                "nome_regra": r.nome_regra,
+                "descricao": r.descricao,
+                "padrao_regex": r.padrao_regex,
+                "mensagem_erro": r.mensagem_erro,
+                "formato_esperado": r.formato_esperado,
+                "obrigatorio": r.obrigatorio,
+                "ativo": r.ativo,
+            }
+            for r in regras
+        ]
+
+    def importar_regras(
+        self,
+        regras: list[dict[str, object]],
+        sobrescrever: bool = False,
+    ) -> dict[str, object]:
+        """Importa em lote regras dinâmicas, com suporte a validação de regex e sobrescrita."""
+        import re
+
+        total_criadas = 0
+        total_atualizadas = 0
+        total_ignoradas = 0
+        erros: list[str] = []
+        mensagens: list[str] = []
+
+        for idx, item in enumerate(regras, start=1):
+            campo_raw = item.get("campo")
+            nome_raw = item.get("nome_regra")
+            if not campo_raw or not nome_raw:
+                erros.append(f"Item #{idx}: 'campo' e 'nome_regra' são obrigatórios.")
+                continue
+
+            campo = str(campo_raw).strip().lower()
+            nome_regra = str(nome_raw).strip()
+            padrao_regex = str(item["padrao_regex"]).strip() if item.get("padrao_regex") else None
+
+            # Validação sintática do regex antes de persistir
+            if padrao_regex:
+                try:
+                    re.compile(padrao_regex)
+                except re.error as e:
+                    erros.append(f"Item #{idx} ({campo} / {nome_regra}): regex inválido ({e}).")
+                    continue
+
+            # Buscar se já existe regra com mesmo campo e nome
+            existente = (
+                self.db.query(RegraValidacao)
+                .filter(
+                    RegraValidacao.campo == campo,
+                    RegraValidacao.nome_regra == nome_regra,
+                )
+                .first()
+            )
+
+            if existente:
+                if existente.eh_imutavel:
+                    erros.append(
+                        f"Item #{idx} ({campo}): não é permitido sobrescrever regra núcleo imutável."
+                    )
+                    continue
+
+                if sobrescrever:
+                    existente.descricao = (
+                        str(item["descricao"]) if item.get("descricao") is not None else None
+                    )
+                    existente.padrao_regex = padrao_regex
+                    existente.mensagem_erro = str(
+                        item.get("mensagem_erro", existente.mensagem_erro)
+                    )
+                    existente.formato_esperado = str(
+                        item.get("formato_esperado", existente.formato_esperado)
+                    )
+                    existente.obrigatorio = bool(item.get("obrigatorio", existente.obrigatorio))
+                    existente.ativo = bool(item.get("ativo", existente.ativo))
+                    total_atualizadas += 1
+                    mensagens.append(
+                        f"Regra '{nome_regra}' para o campo '{campo}' atualizada com sucesso."
+                    )
+                else:
+                    total_ignoradas += 1
+                    mensagens.append(
+                        f"Regra '{nome_regra}' para o campo '{campo}' já existe (ignorada)."
+                    )
+            else:
+                nova_regra = RegraValidacao(
+                    campo=campo,
+                    nome_regra=nome_regra,
+                    descricao=(
+                        str(item["descricao"]) if item.get("descricao") is not None else None
+                    ),
+                    padrao_regex=padrao_regex,
+                    mensagem_erro=str(item.get("mensagem_erro", "Formato inválido")),
+                    formato_esperado=str(item.get("formato_esperado", "Padrão especificado")),
+                    obrigatorio=bool(item.get("obrigatorio", False)),
+                    ativo=bool(item.get("ativo", True)),
+                    eh_imutavel=False,
+                )
+                self.db.add(nova_regra)
+                total_criadas += 1
+                mensagens.append(f"Regra '{nome_regra}' para o campo '{campo}' criada com sucesso.")
+
+        if total_criadas > 0 or total_atualizadas > 0:
+            self.db.commit()
+
+        return {
+            "sucesso": len(erros) == 0,
+            "total_processadas": len(regras),
+            "total_criadas": total_criadas,
+            "total_atualizadas": total_atualizadas,
+            "total_ignoradas": total_ignoradas,
+            "erros": erros,
+            "mensagens": mensagens,
+        }

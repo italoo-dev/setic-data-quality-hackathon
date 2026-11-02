@@ -332,6 +332,8 @@ def test_api_editar_regra_dinamica(client):
 
 def test_api_exportar_e_importar_regras(client):
     """Verifica os fluxos de exportação e importação em lote de regras dinâmicas."""
+    import uuid
+
     # 1. Exportação
     resp_exp = client.get("/api/v1/regras/exportar")
     assert resp_exp.status_code == 200
@@ -340,9 +342,11 @@ def test_api_exportar_e_importar_regras(client):
     assert "regras" in dados_exp
     assert isinstance(dados_exp["regras"], list)
 
+    campo_teste = f"numero_processo_cagd_{uuid.uuid4().hex[:6]}"
+
     # 2. Importação com nova regra
     regra_importacao = {
-        "campo": "numero_processo_cagd",
+        "campo": campo_teste,
         "nome_regra": "Padrão de Processo CAGD",
         "descricao": "Regra importada via automação",
         "padrao_regex": r"^CAGD-\d{4}/\d{4}$",
@@ -355,26 +359,32 @@ def test_api_exportar_e_importar_regras(client):
         "sobrescrever": False,
         "regras": [regra_importacao],
     }
-    resp_imp = client.post("/api/v1/regras/importar", json=payload_imp)
-    assert resp_imp.status_code == 200
-    res_imp = resp_imp.json()
-    assert res_imp["sucesso"] is True
-    assert res_imp["total_processadas"] == 1
-    assert res_imp["total_criadas"] == 1
 
-    # 3. Importação duplicada sem sobrescrita (deve ignorar)
-    resp_imp2 = client.post("/api/v1/regras/importar", json=payload_imp)
-    assert resp_imp2.status_code == 200
-    res_imp2 = resp_imp2.json()
-    assert res_imp2["total_ignoradas"] == 1
+    try:
+        resp_imp = client.post("/api/v1/regras/importar", json=payload_imp)
+        assert resp_imp.status_code == 200
+        res_imp = resp_imp.json()
+        assert res_imp["sucesso"] is True
+        assert res_imp["total_processadas"] == 1
+        assert res_imp["total_criadas"] == 1
 
-    # 4. Importação duplicada com sobrescrita ativada (deve atualizar)
-    regra_importacao["mensagem_erro"] = "Mensagem atualizada via sobrescrita."
-    payload_imp_sobrescrita = {
-        "sobrescrever": True,
-        "regras": [regra_importacao],
-    }
-    resp_imp3 = client.post("/api/v1/regras/importar", json=payload_imp_sobrescrita)
-    assert resp_imp3.status_code == 200
-    res_imp3 = resp_imp3.json()
-    assert res_imp3["total_atualizadas"] == 1
+        # 3. Importação duplicada sem sobrescrita (deve ignorar)
+        resp_imp2 = client.post("/api/v1/regras/importar", json=payload_imp)
+        assert resp_imp2.status_code == 200
+        res_imp2 = resp_imp2.json()
+        assert res_imp2["total_ignoradas"] == 1
+
+        # 4. Importação duplicada com sobrescrita ativada (deve atualizar)
+        regra_importacao["mensagem_erro"] = "Mensagem atualizada via sobrescrita."
+        payload_imp_sobrescrita = {
+            "sobrescrever": True,
+            "regras": [regra_importacao],
+        }
+        resp_imp3 = client.post("/api/v1/regras/importar", json=payload_imp_sobrescrita)
+        assert resp_imp3.status_code == 200
+        res_imp3 = resp_imp3.json()
+        assert res_imp3["total_atualizadas"] == 1
+    finally:
+        regras_api = client.get(f"/api/v1/regras?campo={campo_teste}").json()
+        for r in regras_api:
+            client.delete(f"/api/v1/regras/{r['id']}")

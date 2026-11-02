@@ -125,16 +125,22 @@ def test_pipeline_pattern_end_to_end_orchestration(db):
 
 def test_rule_repository_export_import(db):
     """Verifica isolamento e manipulação de conjuntos de regras via RuleRepository."""
+    import uuid
+
+    from app.database import RegraValidacao
+
     rule_repo = RuleRepository(db)
 
     # Exportar regras dinâmicas
     regras_exportadas = rule_repo.exportar_regras(apenas_dinamicas=True)
     assert isinstance(regras_exportadas, list)
 
+    campo_teste = f"contrato_ti_{uuid.uuid4().hex[:6]}"
+
     # Importar uma regra de teste
     regras_novas: list[dict[str, object]] = [
         {
-            "campo": "contrato_ti_teste",
+            "campo": campo_teste,
             "nome_regra": "Padrão de Contrato de TI",
             "descricao": "Regra para testes automatizados",
             "padrao_regex": r"^TI-\d{4}$",
@@ -145,12 +151,16 @@ def test_rule_repository_export_import(db):
         }
     ]
 
-    res_imp = rule_repo.importar_regras(regras_novas, sobrescrever=False)
-    assert res_imp["sucesso"] is True
-    assert res_imp["total_criadas"] == 1
+    try:
+        res_imp = rule_repo.importar_regras(regras_novas, sobrescrever=False)
+        assert res_imp["sucesso"] is True
+        assert res_imp["total_criadas"] == 1
 
-    # Atualizar com sobrescrita
-    regras_novas[0]["mensagem_erro"] = "Contrato deve ser TI-XXXX"
-    res_imp2 = rule_repo.importar_regras(regras_novas, sobrescrever=True)
-    assert res_imp2["sucesso"] is True
-    assert res_imp2["total_atualizadas"] == 1
+        # Atualizar com sobrescrita
+        regras_novas[0]["mensagem_erro"] = "Contrato deve ser TI-XXXX"
+        res_imp2 = rule_repo.importar_regras(regras_novas, sobrescrever=True)
+        assert res_imp2["sucesso"] is True
+        assert res_imp2["total_atualizadas"] == 1
+    finally:
+        db.query(RegraValidacao).filter(RegraValidacao.campo == campo_teste).delete()
+        db.commit()

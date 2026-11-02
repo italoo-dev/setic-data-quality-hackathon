@@ -75,8 +75,9 @@ ignore = [
 known-first-party = ["app", "panel"]
 
 [tool.pyright]
-include = ["app", "panel"]
+include = ["app", "panel", "tests"]
 exclude = ["**/node_modules", "**/__pycache__", ".venv", ".postgres", ".cache"]
+extraPaths = ["."]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 reportMissingImports = true

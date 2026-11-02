@@ -181,8 +181,8 @@ def popular_regras_iniciais(db: Session) -> None:
             "eh_imutavel": True,
         },
         {
-            "campo": "data_nascimento",
-            "nome_regra": "Validação Temporal e Calendárica de Nascimento",
+            "campo": "data",
+            "nome_regra": "Validação Temporal e Calendárica de Datas",
             "descricao": "Normalização fuzzy via dateparser e bloqueio estrito de datas impossíveis no calendário gregoriano.",
             "padrao_regex": None,
             "mensagem_erro": "Data inexistente no calendário (ex: 31 de fevereiro) ou situada no futuro.",

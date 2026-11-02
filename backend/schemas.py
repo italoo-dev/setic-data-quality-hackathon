@@ -25,7 +25,7 @@ class RequisicaoValidacao(BaseModel):
                 "sistema_origem": "SISTEMA_RH_ESTADUAL",
                 "dados": {
                     "cpf": "117.941.016-59",
-                    "data_nascimento": "15 de março de 1985",
+                    "data": "15 de março de 1985",
                     "municipio": "p. velho",
                     "uf": "RO",
                     "telefone": "(69) 99234-5678",
@@ -54,7 +54,7 @@ class ErroDiagnosticoDetalhe(BaseModel):
     campo: str = Field(
         ...,
         description="Nome do campo em que foi detectada a desconformidade",
-        examples=["cpf", "data_nascimento", "municipio"],
+        examples=["cpf", "data", "municipio"],
     )
     regra_violada: str = Field(
         ...,

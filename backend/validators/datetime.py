@@ -18,7 +18,7 @@ from backend.validators.base import BaseValidator
 
 def validar_e_normalizar_data(
     valor: object,
-    campo: str = "data_nascimento",
+    campo: str = "data",
     permitir_futuro: bool = False,
 ) -> ResultadoValidacao:
     """Valida consistência temporal de calendário e normaliza datas para o padrão ISO-8601."""
@@ -113,6 +113,7 @@ def validar_e_normalizar_data(
     iso_data = data_objeto.isoformat()
     return ResultadoValidacao(
         valido=True,
+        campo=campo,
         valor_normalizado=iso_data,
         mensagem_transformacao=f"Data '{texto}' normalizada para o formato ISO-8601 '{iso_data}'.",
     )

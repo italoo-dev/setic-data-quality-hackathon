@@ -84,6 +84,7 @@ def test_data_portugues_normalizacao_iso():
     res = validar_e_normalizar_data("15 de março de 1985")
     assert res.valido is True
     assert res.valor_normalizado == "1985-03-15"
+    assert res.campo == "data"
 
 
 def test_data_impossivel_calendario_bloqueio():
@@ -91,6 +92,7 @@ def test_data_impossivel_calendario_bloqueio():
     res = validar_e_normalizar_data("31/02/1990")
     assert res.valido is False
     assert res.regra_violada == "DATA_IMPOSSIVEL_CALENDARIO"
+    assert res.campo == "data"
 
     res_bissexto = validar_e_normalizar_data("29/02/2023")  # 2023 não é bissexto
     assert res_bissexto.valido is False
@@ -217,6 +219,7 @@ def test_api_validar_payload_valido(client):
         "sistema_origem": "TESTE_INTEGRACAO",
         "dados": {
             "cpf": "117.941.016-59",
+            "data": "15 de março de 1985",
             "data_nascimento": "15 de março de 1985",
             "municipio": "p. velho",
             "uf": "RO",
@@ -230,6 +233,7 @@ def test_api_validar_payload_valido(client):
     dados = resp.json()
     assert dados["sucesso"] is True
     assert dados["dados_normalizados"]["cpf"] == "11794101659"
+    assert dados["dados_normalizados"]["data"] == "1985-03-15"
     assert dados["dados_normalizados"]["data_nascimento"] == "1985-03-15"
     assert dados["dados_normalizados"]["municipio"] == "Porto Velho"
     assert dados["dados_normalizados"]["codigo_ibge"] == "1100205"

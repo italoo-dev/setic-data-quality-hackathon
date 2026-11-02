@@ -678,7 +678,7 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
             "sistema_origem": "SISTEMA_RH_ESTADUAL",
             "dados": {
                 "cpf": "117.941.016-59",
-                "data_nascimento": "15 de março de 1985",
+                "data": "15 de março de 1985",
                 "municipio": "p. velho",
                 "uf": "RO",
                 "telefone": "69992345678",
@@ -689,7 +689,7 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
             "sistema_origem": "SEFIN_CADASTRO_NACIONAL",
             "dados": {
                 "cpf": "11794101659",
-                "data_nascimento": "20 de julho de 1992",
+                "data": "20 de julho de 1992",
                 "municipio": "sao paulo",
                 "uf": "SP",
                 "telefone": "(11) 98765-4321",
@@ -699,7 +699,7 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
             "sistema_origem": "PORTAL_TRANSPARENCIA",
             "dados": {
                 "cpf": "123.456.789-00",
-                "data_nascimento": "31/02/1990",
+                "data": "31/02/1990",
                 "municipio": "Atlantida",
                 "uf": "RO",
             },
@@ -708,7 +708,7 @@ elif menu_selecionado == "🧪 Sandbox de Validação em Tempo Real":
             "sistema_origem": "SISTEMA_RH_ESTADUAL",
             "dados": {
                 "cpf": "117.941.016-59",
-                "data_nascimento": "1990-05-10",
+                "data": "1990-05-10",
                 "municipio": "Ji-Paraná",
                 "uf": "RO",
                 "matricula_funcional": "MAT-009988",
